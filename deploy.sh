@@ -23,22 +23,14 @@ echo "✅ Virtual environment activated"
 # Upgrade pip to avoid compatibility issues
 pip install --upgrade pip
 
-# Install dependencies from both requirements files if they exist
-if [ -f "$REQUIREMENTS_FILE" ]; then
-  echo "📦 Installing dependencies from requirements.txt..."
-  pip install -r "$REQUIREMENTS_FILE"
-  echo "✅ Dependencies installed from requirements.txt"
-else
-  echo "⚠️ No requirements.txt file found at $REQUIREMENTS_FILE"
-fi
+# Install dependencies from both requirements files, always reinstalling
+echo "📦 Installing dependencies from requirements.txt..."
+pip install --upgrade --force-reinstall -r "$REQUIREMENTS_FILE"
+echo "✅ Dependencies installed from requirements.txt"
 
-if [ -f "$TORCH_REQUIREMENTS_FILE" ]; then
-  echo "📦 Installing dependencies from torch-requirements.txt..."
-  pip install -r "$TORCH_REQUIREMENTS_FILE"
-  echo "✅ Dependencies installed from torch-requirements.txt"
-else
-  echo "⚠️ No torch-requirements.txt file found at $TORCH_REQUIREMENTS_FILE"
-fi
+echo "📦 Installing dependencies from torch-requirements.txt..."
+pip install --upgrade --force-reinstall -r "$TORCH_REQUIREMENTS_FILE"
+echo "✅ Dependencies installed from torch-requirements.txt"
 
 # copy the .servcie file
 sudo cp yolo.service /etc/systemd/system/
