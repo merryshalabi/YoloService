@@ -1,0 +1,13 @@
+[Unit]
+Description=YOLO FastAPI Detection Service
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/YoloService
+ExecStart=/home/ubuntu/YoloService/.venv/bin/uvicorn app:app --host 0.0.0.0 --p>
+Restart=always
+Environment="YOLO_CONFIG_DIR=/home/ubuntu/.config/Ultralytics"
+
+[Install]
+WantedBy=multi-user.target
