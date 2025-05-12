@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # Define the path to your virtual environment
@@ -12,10 +13,6 @@ else
   echo "❌ Virtual environment not found at $VENV_DIR"
   echo "📦 Creating a new virtual environment..."
   python3 -m venv "$VENV_DIR"
-  if [ $? -ne 0 ]; then
-    echo "❌ Failed to create virtual environment. Exiting."
-    exit 1
-  fi
   echo "✅ Virtual environment created at $VENV_DIR"
 fi
 
@@ -23,44 +20,30 @@ fi
 source "$VENV_DIR/bin/activate"
 echo "✅ Virtual environment activated"
 
-# Confirm the Python version and executable path
-echo "✅ Using Python executable: $(which python)"
-echo "✅ Python version: $(python --version)"
-
 # Upgrade pip to avoid compatibility issues
-echo "📦 Upgrading pip..."
-$VENV_DIR/bin/python -m pip install --upgrade pip || { echo "❌ Failed to upgrade pip."; exit 1; }
+pip install --upgrade pip
 
-# Install dependencies from requirements.txt with debugging
-echo "📦 Installing dependencies from requirements.txt..."
-$VENV_DIR/bin/python -m pip install --no-cache-dir -r "$REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from requirements.txt."; exit 1; }
-echo "✅ Dependencies installed from requirements.txt"
-
-# Install dependencies from torch-requirements.txt with debugging
-echo "📦 Installing dependencies from torch-requirements.txt..."
-$VENV_DIR/bin/python -m pip install --no-cache-dir -r "$TORCH_REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from torch-requirements.txt."; exit 1; }
-echo "✅ Dependencies installed from torch-requirements.txt"
-
-# Ensure pytest is installed within the virtual environment
-echo "📦 Ensuring pytest is installed in the virtual environment..."
-$VENV_DIR/bin/python -m pip install --no-cache-dir pytest || { echo "❌ Failed to install pytest."; exit 1; }
-echo "✅ pytest installed in the virtual environment."
-
-# Verify pytest installation and path
-echo "📦 Verifying pytest installation within the virtual environment:"
-$VENV_DIR/bin/python -m pip list | grep pytest
-echo "📦 Pytest installation location:"
-$VENV_DIR/bin/python -c "import pytest; print('✅ pytest is installed at:', pytest.__file__)"
-
-# Copy the service file if it exists
-if [ -f "yolo.service" ]; then
-  sudo cp yolo.service /etc/systemd/system/
+# Install dependencies from both requirements files if they exist
+if [ -f "$REQUIREMENTS_FILE" ]; then
+  echo "📦 Installing dependencies from requirements.txt..."
+  pip install -r "$REQUIREMENTS_FILE"
+  echo "✅ Dependencies installed from requirements.txt"
 else
-  echo "❌ yolo.service file not found. Exiting."
-  exit 1
+  echo "⚠️ No requirements.txt file found at $REQUIREMENTS_FILE"
 fi
 
-# Reload daemon and restart the service
+if [ -f "$TORCH_REQUIREMENTS_FILE" ]; then
+  echo "📦 Installing dependencies from torch-requirements.txt..."
+  pip install -r "$TORCH_REQUIREMENTS_FILE"
+  echo "✅ Dependencies installed from torch-requirements.txt"
+else
+  echo "⚠️ No torch-requirements.txt file found at $TORCH_REQUIREMENTS_FILE"
+fi
+
+# copy the .servcie file
+sudo cp yolo.service /etc/systemd/system/
+
+# reload daemon and restart the service
 sudo systemctl daemon-reload
 sudo systemctl restart yolo.service
 sudo systemctl enable yolo.service
@@ -70,6 +53,4 @@ if ! systemctl is-active --quiet yolo.service; then
   echo "❌ yolo.service is not running."
   sudo systemctl status yolo.service --no-pager
   exit 1
-else
-  echo "✅ yolo.service is running."
 fi
