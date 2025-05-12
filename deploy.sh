@@ -30,22 +30,21 @@ python -m pip install --upgrade pip || { echo "❌ Failed to upgrade pip."; exit
 # Install dependencies from requirements.txt with debugging
 echo "📦 Installing dependencies from requirements.txt..."
 python -m pip install --no-cache-dir -r "$REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from requirements.txt."; exit 1; }
-
 echo "✅ Dependencies installed from requirements.txt"
-echo "📦 Installed Packages after requirements.txt installation:"
-python -m pip list
 
 # Install dependencies from torch-requirements.txt with debugging
 echo "📦 Installing dependencies from torch-requirements.txt..."
 python -m pip install --no-cache-dir -r "$TORCH_REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from torch-requirements.txt."; exit 1; }
-
 echo "✅ Dependencies installed from torch-requirements.txt"
-echo "📦 Installed Packages after torch-requirements.txt installation:"
-python -m pip list
 
-# Ensure pytest is installed
-echo "📦 Verifying pytest installation..."
-python -m pip show pytest || { echo "❌ pytest not found. Installing..."; python -m pip install pytest; }
+# Manually ensure pytest is installed (temporary fix)
+echo "📦 Installing pytest manually to bypass PR block..."
+python -m pip install pytest
+echo "✅ pytest installed manually."
+
+# Check if pytest is in the list of installed packages
+echo "📦 Final list of installed packages (to ensure pytest is present):"
+python -m pip list | grep pytest
 
 # Copy the service file if it exists
 if [ -f "yolo.service" ]; then
