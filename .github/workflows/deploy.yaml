@@ -34,14 +34,13 @@ jobs:
               StrictHostKeyChecking no
           EOF
 
-      - name: Setup Environment on EC2 for Tests
+      - name: Clean Untracked Files and Setup Environment on EC2
         run: |
-          ssh ec2 "cd $REPO_NAME && bash deploy.sh"  # Run deploy.sh to ensure dependencies are installed
+          ssh ec2 "cd $REPO_NAME && git reset --hard && git clean -fd && bash deploy.sh"
 
       - name: Run Tests on EC2
         run: |
           ssh ec2 "cd $REPO_NAME && source .venv/bin/activate && pip list && python -m unittest discover -s tests -v"
-          
 
   Deploy:
     needs: Test
@@ -70,7 +69,7 @@ jobs:
 
       - name: Copy script to EC2
         run: |
-          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git pull; else git clone ${REPO_URL} ~/${REPO_NAME}; fi"
+          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git reset --hard && git clean -fd && git pull; else git clone ${REPO_URL} ~/${REPO_NAME}; fi"
 
       - name: Execute Deployment on EC2
         run: |
