@@ -23,6 +23,10 @@ fi
 source "$VENV_DIR/bin/activate"
 echo "✅ Virtual environment activated"
 
+# Confirm the Python version and executable path
+echo "✅ Using Python executable: $(which python)"
+echo "✅ Python version: $(python --version)"
+
 # Upgrade pip to avoid compatibility issues
 echo "📦 Upgrading pip..."
 python -m pip install --upgrade pip || { echo "❌ Failed to upgrade pip."; exit 1; }
@@ -37,14 +41,18 @@ echo "📦 Installing dependencies from torch-requirements.txt..."
 python -m pip install --no-cache-dir -r "$TORCH_REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from torch-requirements.txt."; exit 1; }
 echo "✅ Dependencies installed from torch-requirements.txt"
 
-# Manually ensure pytest is installed (temporary fix)
-echo "📦 Installing pytest manually to bypass PR block..."
-python -m pip install pytest
-echo "✅ pytest installed manually."
+# Ensure pytest is installed within the virtual environment
+echo "📦 Ensuring pytest is installed in the virtual environment..."
+python -m pip install --no-cache-dir --force-reinstall pytest || { echo "❌ Failed to install pytest."; exit 1; }
+echo "✅ pytest installed in the virtual environment."
 
-# Check if pytest is in the list of installed packages
-echo "📦 Final list of installed packages (to ensure pytest is present):"
+# Verify pytest installation
+echo "📦 Verifying pytest installation within the virtual environment:"
 python -m pip list | grep pytest
+
+# Check if pytest is properly installed and recognized
+echo "📦 Testing pytest import..."
+python -c "import pytest; print('✅ pytest import successful')" || { echo "❌ pytest import failed. Exiting."; exit 1; }
 
 # Copy the service file if it exists
 if [ -f "yolo.service" ]; then
