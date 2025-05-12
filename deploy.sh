@@ -25,20 +25,27 @@ echo "✅ Virtual environment activated"
 
 # Upgrade pip to avoid compatibility issues
 echo "📦 Upgrading pip..."
-pip install --upgrade pip || { echo "❌ Failed to upgrade pip."; exit 1; }
+python -m pip install --upgrade pip || { echo "❌ Failed to upgrade pip."; exit 1; }
 
-# Install dependencies from both requirements files
+# Install dependencies from requirements.txt with debugging
 echo "📦 Installing dependencies from requirements.txt..."
-pip install -r "$REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from requirements.txt."; exit 1; }
-echo "✅ Dependencies installed from requirements.txt"
+python -m pip install --no-cache-dir -r "$REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from requirements.txt."; exit 1; }
 
+echo "✅ Dependencies installed from requirements.txt"
+echo "📦 Installed Packages after requirements.txt installation:"
+python -m pip list
+
+# Install dependencies from torch-requirements.txt with debugging
 echo "📦 Installing dependencies from torch-requirements.txt..."
-pip install -r "$TORCH_REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from torch-requirements.txt."; exit 1; }
+python -m pip install --no-cache-dir -r "$TORCH_REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from torch-requirements.txt."; exit 1; }
+
 echo "✅ Dependencies installed from torch-requirements.txt"
+echo "📦 Installed Packages after torch-requirements.txt installation:"
+python -m pip list
 
 # Ensure pytest is installed
 echo "📦 Verifying pytest installation..."
-pip show pytest || { echo "❌ pytest not found. Installing..."; pip install pytest; }
+python -m pip show pytest || { echo "❌ pytest not found. Installing..."; python -m pip install pytest; }
 
 # Copy the service file if it exists
 if [ -f "yolo.service" ]; then
