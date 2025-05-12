@@ -41,7 +41,6 @@ jobs:
       - name: Run Tests on EC2
         run: |
           ssh ec2 "cd $REPO_NAME && source .venv/bin/activate && pip list && python -m unittest discover -s tests -v"
-          
 
   Deploy:
     needs: Test
