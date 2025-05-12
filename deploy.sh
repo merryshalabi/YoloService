@@ -1,4 +1,3 @@
-
 #!/bin/bash
 
 # Define the path to your virtual environment
@@ -13,6 +12,10 @@ else
   echo "❌ Virtual environment not found at $VENV_DIR"
   echo "📦 Creating a new virtual environment..."
   python3 -m venv "$VENV_DIR"
+  if [ $? -ne 0 ]; then
+    echo "❌ Failed to create virtual environment. Exiting."
+    exit 1
+  fi
   echo "✅ Virtual environment created at $VENV_DIR"
 fi
 
@@ -21,21 +24,31 @@ source "$VENV_DIR/bin/activate"
 echo "✅ Virtual environment activated"
 
 # Upgrade pip to avoid compatibility issues
-pip install --upgrade pip
+echo "📦 Upgrading pip..."
+pip install --upgrade pip || { echo "❌ Failed to upgrade pip."; exit 1; }
 
-# Install dependencies from both requirements files, always reinstalling
+# Install dependencies from both requirements files
 echo "📦 Installing dependencies from requirements.txt..."
-pip install --upgrade --force-reinstall -r "$REQUIREMENTS_FILE"
+pip install -r "$REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from requirements.txt."; exit 1; }
 echo "✅ Dependencies installed from requirements.txt"
 
 echo "📦 Installing dependencies from torch-requirements.txt..."
-pip install --upgrade --force-reinstall -r "$TORCH_REQUIREMENTS_FILE"
+pip install -r "$TORCH_REQUIREMENTS_FILE" || { echo "❌ Failed to install dependencies from torch-requirements.txt."; exit 1; }
 echo "✅ Dependencies installed from torch-requirements.txt"
 
-# copy the .servcie file
-sudo cp yolo.service /etc/systemd/system/
+# Ensure pytest is installed
+echo "📦 Verifying pytest installation..."
+pip show pytest || { echo "❌ pytest not found. Installing..."; pip install pytest; }
 
-# reload daemon and restart the service
+# Copy the service file if it exists
+if [ -f "yolo.service" ]; then
+  sudo cp yolo.service /etc/systemd/system/
+else
+  echo "❌ yolo.service file not found. Exiting."
+  exit 1
+fi
+
+# Reload daemon and restart the service
 sudo systemctl daemon-reload
 sudo systemctl restart yolo.service
 sudo systemctl enable yolo.service
@@ -45,4 +58,6 @@ if ! systemctl is-active --quiet yolo.service; then
   echo "❌ yolo.service is not running."
   sudo systemctl status yolo.service --no-pager
   exit 1
+else
+  echo "✅ yolo.service is running."
 fi
