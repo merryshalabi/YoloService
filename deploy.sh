@@ -2,17 +2,44 @@
 #!/bin/bash
 
 # Define the path to your virtual environment
-VENV_DIR="/home/ubuntu/yolo-app/venv"
+VENV_DIR="/home/ubuntu/YoloService/.venv"
+REQUIREMENTS_FILE="/home/ubuntu/YoloService/requirements.txt"
+TORCH_REQUIREMENTS_FILE="/home/ubuntu/YoloService/torch-requirements.txt"
 
 # Check if the virtual environment exists
 if [ -d "$VENV_DIR" ]; then
   echo "✅ Virtual environment found at $VENV_DIR"
-  source "$VENV_DIR/bin/activate"
-  echo "✅ Virtual environment activated"
 else
   echo "❌ Virtual environment not found at $VENV_DIR"
-  exit 1
+  echo "📦 Creating a new virtual environment..."
+  python3 -m venv "$VENV_DIR"
+  echo "✅ Virtual environment created at $VENV_DIR"
 fi
+
+# Activate the virtual environment
+source "$VENV_DIR/bin/activate"
+echo "✅ Virtual environment activated"
+
+# Upgrade pip to avoid compatibility issues
+pip install --upgrade pip
+
+# Install dependencies from both requirements files if they exist
+if [ -f "$REQUIREMENTS_FILE" ]; then
+  echo "📦 Installing dependencies from requirements.txt..."
+  pip install -r "$REQUIREMENTS_FILE"
+  echo "✅ Dependencies installed from requirements.txt"
+else
+  echo "⚠️ No requirements.txt file found at $REQUIREMENTS_FILE"
+fi
+
+if [ -f "$TORCH_REQUIREMENTS_FILE" ]; then
+  echo "📦 Installing dependencies from torch-requirements.txt..."
+  pip install -r "$TORCH_REQUIREMENTS_FILE"
+  echo "✅ Dependencies installed from torch-requirements.txt"
+else
+  echo "⚠️ No torch-requirements.txt file found at $TORCH_REQUIREMENTS_FILE"
+fi
+
 # copy the .servcie file
 sudo cp yolo.service /etc/systemd/system/
 
