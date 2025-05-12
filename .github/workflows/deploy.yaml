@@ -3,8 +3,7 @@ name: Yolo Deploy
 on:
   push:
     branches:
-     - main
-
+      - main
   workflow_dispatch:
 
 env:
@@ -35,9 +34,13 @@ jobs:
               StrictHostKeyChecking no
           EOF
 
+      - name: Setup Environment on EC2 for Tests
+        run: |
+          ssh ec2 "cd $REPO_NAME && bash deploy.sh"  # Run deploy.sh to ensure dependencies are installed
+
       - name: Run Tests on EC2
         run: |
-          ssh ec2 "cd $REPO_NAME && source .venv/bin/activate && python -m unittest discover -s tests -v"
+          ssh ec2 "cd $REPO_NAME && source .venv/bin/activate && pip list && python -m unittest discover -s tests -v"
 
   Deploy:
     needs: Test
