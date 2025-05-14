@@ -1,25 +1,18 @@
 #!/bin/bash
 
-set -e
+# Copy the systemd service file
+sudo cp ~/yolo.service /etc/systemd/system/
 
-SERVICE_FILE="yolo.service"
-VENV_DIR=".venv"
-
-# Copy service file
-echo "🔧 Copying systemd service..."
-sudo cp $SERVICE_FILE /etc/systemd/system/
-
-# Reload and restart service
-echo "🔁 Restarting yolo.service..."
+# Reload systemd and restart the service
 sudo systemctl daemon-reload
 sudo systemctl restart yolo.service
 sudo systemctl enable yolo.service
 
-# Confirm it's active
-if systemctl is-active --quiet yolo.service; then
-  echo "✅ yolo.service is running."
-else
-  echo "❌ yolo.service failed to start."
-  sudo systemctl status yolo.service
+# Verify the service is running
+if ! systemctl is-active --quiet yolo.service; then
+  echo "❌ yolo.service is not running."
+  sudo systemctl status yolo.service --no-pager
   exit 1
 fi
+
+echo "✅ yolo.service is running successfully."
