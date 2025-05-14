@@ -9,11 +9,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      REPO_NAME: YoloService
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH access to EC2
+      - name: Set up SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -23,25 +26,39 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-      - name: Copy repo to EC2 and run tests
+      - name: Clone or Pull Repo on EC2
         run: |
-          scp -r . ubuntu@$EC2_HOST:~/YoloService
-          ssh ubuntu@$EC2_HOST '
-            cd ~/YoloService &&
-            chmod +x setup.sh &&
-            ./setup.sh &&
-            source .venv/bin/activate &&
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
+            if [ ! -d "$REPO_NAME" ]; then
+              git clone https://github.com/${{ github.repository }}.git $REPO_NAME
+            else
+              cd $REPO_NAME && git reset --hard && git clean -fd && git pull
+            fi
+          '
+
+      - name: Copy setup and service files to EC2
+        run: |
+          scp -i ~/.ssh/id_rsa setup.sh deploy.sh yolo.service ubuntu@${{ secrets.EC2_HOST }}:~/YoloService/
+
+      - name: Run setup and tests on EC2
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
+            cd YoloService
+            chmod +x setup.sh
+            ./setup.sh
+            source .venv/bin/activate
             python3 -m unittest discover -s tests -v
           '
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy YOLO to EC2
+      - name: Set up SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -51,9 +68,10 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-          scp -r . ubuntu@$EC2_HOST:~/YoloService
-          ssh ubuntu@$EC2_HOST '
-            cd ~/YoloService &&
-            chmod +x setup.sh &&
-            ./setup.sh
+      - name: Run Deployment on EC2
+        run: |
+          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
+            cd YoloService
+            chmod +x deploy.sh
+            ./deploy.sh
           '
