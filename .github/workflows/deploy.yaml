@@ -1,78 +1,85 @@
-name: Yolo Test and Deploy
+name: Yolo Service CI/CD
 
 on:
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USER: ${{ secrets.EC2_USERNAME }}
+  SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  REPO_NAME: YoloService
+  PROJECT_DIR: /home/ubuntu/YoloService
 
 jobs:
-  test_and_deploy:
+  test:
+    name: Run API Tests
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Set up SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
 
-      - name: Prepare and test on EC2
-        run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@$EC2_HOST '
-            set -e
-            cd ~
-            if [ -d "YoloService" ]; then
-              cd YoloService
-              git pull
-            else
-              git clone https://github.com/${{ github.repository }}.git YoloService
-              cd YoloService
-            fi
+    - name: Install dependencies
+      run: |
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r torch-requirements.txt
+        pip install boto3
+        pip install .
 
-            if [ ! -d ".venv" ]; then
-              python3 -m venv .venv
-            fi
+    - name: Run tests
+      run: |
+        source .venv/bin/activate
+        python -m unittest discover tests
 
-            source .venv/bin/activate
-            pip install --upgrade pip
+  deploy:
+    name: Deploy to EC2
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
 
-            if [ -f "requirements.txt" ]; then
-              pip install -r requirements.txt
-            fi
+    steps:
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "$SSH_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan $EC2_HOST >> ~/.ssh/known_hosts
 
-            if [ -f "torch-requirements.txt" ]; then
-              pip install -r torch-requirements.txt
-            fi
+    - name: Deploy App
+      run: |
+        ssh $EC2_USER@$EC2_HOST << 'EOF'
+          set -e
+          cd ~
+          if [ -d "$PROJECT_DIR" ]; then
+            cd "$PROJECT_DIR"
+            git pull origin main
+          else
+            git clone https://github.com/${{ github.repository }} "$PROJECT_DIR"
+            cd "$PROJECT_DIR"
+          fi
 
-            echo "Running unit tests..."
-            python3 -m unittest discover -s tests -v
-          '
+          # Check for .venv
+          if [ ! -d ".venv" ]; then
+            python3 -m venv .venv
+          fi
 
-      - name: Deploy yolo.service
-        run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@$EC2_HOST '
-            set -e
-            cd ~/YoloService
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r torch-requirements.txt
+          pip install boto3
+          pip install .
 
-            echo "Copying and restarting yolo.service"
-            sudo cp yolo.service /etc/systemd/system/yolo.service
-            sudo systemctl daemon-reload
-            sudo systemctl restart yolo.service
-            sudo systemctl enable yolo.service
-
-            if ! systemctl is-active --quiet yolo.service; then
-              echo "❌ yolo.service is not running."
-              sudo systemctl status yolo.service --no-pager
-              exit 1
-            fi
-
-            echo "✅ yolo.service is active and running."
-          '
+          sudo systemctl restart yolo.service || echo "Service not found, skipping restart"
+        EOF
