@@ -30,6 +30,7 @@ model = YOLO("yolov8n.pt")
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 s3_client = boto3.client("s3")
 
+
 # Initialize SQLite
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
