@@ -1,22 +1,25 @@
-deploy_sh = """#!/bin/bash
+#!/bin/bash
 
 set -e
 
-echo ">>> Copying yolo.service to systemd directory"
-sudo cp yolo.service /etc/systemd/system/
+SERVICE_FILE="yolo.service"
+VENV_DIR=".venv"
 
-echo ">>> Reloading systemd daemon"
+# Copy service file
+echo "🔧 Copying systemd service..."
+sudo cp $SERVICE_FILE /etc/systemd/system/
+
+# Reload and restart service
+echo "🔁 Restarting yolo.service..."
 sudo systemctl daemon-reload
-
-echo ">>> Restarting yolo.service"
 sudo systemctl restart yolo.service
 sudo systemctl enable yolo.service
 
-echo ">>> Checking service status..."
-if ! systemctl is-active --quiet yolo.service; then
-  echo "❌ yolo.service is not running."
-  sudo systemctl status yolo.service --no-pager
+# Confirm it's active
+if systemctl is-active --quiet yolo.service; then
+  echo "✅ yolo.service is running."
+else
+  echo "❌ yolo.service failed to start."
+  sudo systemctl status yolo.service
   exit 1
 fi
-
-echo "✅ yolo.service is running successfully"

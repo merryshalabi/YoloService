@@ -6,12 +6,13 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+  REPO_NAME: ${{ github.event.repository.name }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      REPO_NAME: YoloService
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,32 +21,52 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-      - name: Clone or Pull Repo on EC2
+      - name: Ensure project and environment setup on EC2
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
-            if [ ! -d "$REPO_NAME" ]; then
-              git clone https://github.com/${{ github.repository }}.git $REPO_NAME
+          ssh ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
+            set -e
+            if [ -d "${REPO_NAME}/.git" ]; then
+              echo "✅ Repo exists. Pulling latest changes..."
+              cd ${REPO_NAME}
+              git reset --hard
+              git clean -fd
+              git pull
             else
-              cd $REPO_NAME && git reset --hard && git clean -fd && git pull
+              echo "📦 Cloning fresh repo into ${REPO_NAME}"
+              git clone ${REPO_URL} ${REPO_NAME}
+              cd ${REPO_NAME}
+            fi
+
+            echo "🧪 Setting up virtual environment..."
+            if [ ! -d ".venv" ]; then
+              python3 -m venv .venv
+            fi
+
+            source .venv/bin/activate
+            pip install --upgrade pip
+
+            if [ -f "requirements.txt" ]; then
+              echo "📦 Installing requirements.txt..."
+              pip install -r requirements.txt
+            fi
+
+            if [ -f "torch-requirements.txt" ]; then
+              echo "📦 Installing torch-requirements.txt..."
+              pip install -r torch-requirements.txt
             fi
           '
 
-      - name: Copy setup and service files to EC2
+      - name: Run tests on EC2
         run: |
-          scp -i ~/.ssh/id_rsa setup.sh deploy.sh yolo.service ubuntu@${{ secrets.EC2_HOST }}:~/YoloService/
-
-      - name: Run setup and tests on EC2
-        run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
-            cd YoloService
-            chmod +x setup.sh
-            ./setup.sh
+          ssh ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
+            cd ${REPO_NAME}
             source .venv/bin/activate
             python3 -m unittest discover -s tests -v
           '
@@ -53,25 +74,21 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Set up SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-      - name: Run Deployment on EC2
+      - name: Deploy YOLO service on EC2
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_HOST }} '
-            cd YoloService
-            chmod +x deploy.sh
+          ssh ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
+            cd ${REPO_NAME}
             ./deploy.sh
           '
