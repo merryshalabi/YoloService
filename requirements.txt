@@ -71,3 +71,4 @@ ultralytics==8.3.128
 ultralytics-thop==2.0.14
 urllib3==2.4.0
 uvicorn==0.34.2
+boto3>=1.28.0
