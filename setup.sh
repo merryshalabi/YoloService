@@ -1,33 +1,41 @@
 #!/bin/bash
 
-# Setup Python virtual environment and install requirements
+cd "$(dirname "$0")"
 
-VENV_DIR="$HOME/YoloService/.venv"
-REQUIREMENTS_FILE="$HOME/YoloService/requirements.txt"
-TORCH_REQUIREMENTS_FILE="$HOME/YoloService/torch-requirements.txt"
+VENV_DIR=".venv"
+REQUIREMENTS_FILE="requirements.txt"
+TORCH_REQUIREMENTS_FILE="torch-requirements.txt"
 
-# Create virtual environment if not exists
+# Create venv if missing
 if [ ! -d "$VENV_DIR" ]; then
-  echo "📦 Creating virtual environment..."
+  echo "Creating virtual environment..."
   python3 -m venv "$VENV_DIR"
-else
-  echo "✅ Virtual environment found at $VENV_DIR"
 fi
 
 # Activate venv
 source "$VENV_DIR/bin/activate"
-echo "✅ Virtual environment activated"
 
 # Upgrade pip
 pip install --upgrade pip
 
-# Install Python packages
+# Install requirements
 if [ -f "$REQUIREMENTS_FILE" ]; then
-  echo "📦 Installing from requirements.txt"
   pip install -r "$REQUIREMENTS_FILE"
 fi
 
 if [ -f "$TORCH_REQUIREMENTS_FILE" ]; then
-  echo "📦 Installing from torch-requirements.txt"
   pip install -r "$TORCH_REQUIREMENTS_FILE"
+fi
+
+# Setup systemd service
+sudo cp yolo.service /etc/systemd/system/yolo.service
+sudo systemctl daemon-reload
+sudo systemctl restart yolo.service
+sudo systemctl enable yolo.service
+
+# Check service status
+if ! systemctl is-active --quiet yolo.service; then
+  echo "YOLO service is not running!"
+  sudo systemctl status yolo.service
+  exit 1
 fi
