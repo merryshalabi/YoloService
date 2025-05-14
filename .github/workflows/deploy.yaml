@@ -1,4 +1,4 @@
-name: YOLO Test and Deploy
+name: Yolo Test and Deploy
 
 on:
   push:
@@ -6,13 +6,10 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
-  REPO_NAME: ${{ github.event.repository.name }}
-
 jobs:
-  test:
+  test_and_deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,30 +18,25 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
 
-      - name: Ensure project and environment setup on EC2
+      - name: Prepare and test on EC2
         run: |
-          ssh ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
+          ssh -i ~/.ssh/id_rsa ubuntu@$EC2_HOST '
             set -e
-            if [ -d "${REPO_NAME}/.git" ]; then
-              echo "✅ Repo exists. Pulling latest changes..."
-              cd ${REPO_NAME}
-              git reset --hard
-              git clean -fd
+            cd ~
+            if [ -d "YoloService" ]; then
+              cd YoloService
               git pull
             else
-              echo "📦 Cloning fresh repo into ${REPO_NAME}"
-              git clone ${REPO_URL} ${REPO_NAME}
-              cd ${REPO_NAME}
+              git clone https://github.com/${{ github.repository }}.git YoloService
+              cd YoloService
             fi
 
-            echo "🧪 Setting up virtual environment..."
             if [ ! -d ".venv" ]; then
               python3 -m venv .venv
             fi
@@ -53,42 +45,34 @@ jobs:
             pip install --upgrade pip
 
             if [ -f "requirements.txt" ]; then
-              echo "📦 Installing requirements.txt..."
               pip install -r requirements.txt
             fi
 
             if [ -f "torch-requirements.txt" ]; then
-              echo "📦 Installing torch-requirements.txt..."
               pip install -r torch-requirements.txt
             fi
-          '
 
-      - name: Run tests on EC2
-        run: |
-          ssh ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
-            cd ${REPO_NAME}
-            source .venv/bin/activate
+            echo "Running unit tests..."
             python3 -m unittest discover -s tests -v
           '
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      - name: Deploy yolo.service
         run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_rsa ubuntu@$EC2_HOST '
+            set -e
+            cd ~/YoloService
 
-      - name: Deploy YOLO service on EC2
-        run: |
-          ssh ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
-            cd ${REPO_NAME}
-            ./deploy.sh
+            echo "Copying and restarting yolo.service"
+            sudo cp yolo.service /etc/systemd/system/yolo.service
+            sudo systemctl daemon-reload
+            sudo systemctl restart yolo.service
+            sudo systemctl enable yolo.service
+
+            if ! systemctl is-active --quiet yolo.service; then
+              echo "❌ yolo.service is not running."
+              sudo systemctl status yolo.service --no-pager
+              exit 1
+            fi
+
+            echo "✅ yolo.service is active and running."
           '
