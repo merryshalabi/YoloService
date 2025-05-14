@@ -27,7 +27,7 @@ os.makedirs(PREDICTED_DIR, exist_ok=True)
 
 # Download the AI model (tiny model ~6MB)
 model = YOLO("yolov8n.pt")
-S3_BUCKET_NAME = "merry-polybot-images"
+S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 s3_client = boto3.client("s3")
 
 # Initialize SQLite
