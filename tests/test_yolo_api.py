@@ -92,6 +92,7 @@ class TestYoloAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+
     def test_image_endpoint_predicted_valid(self):
         with open("tests/test_image.jpg", "rb") as image_file:
             response = client.post("/predict", files={"file": image_file})
