@@ -105,6 +105,8 @@ class TestYoloAPI(unittest.TestCase):
         response = client.get(f"/image/original/{uid}.jpg")
         self.assertEqual(response.status_code, 200)
 
+
+
     def test_image_endpoint_predicted_valid(self):
         response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         uid = response.json()["prediction_uid"]
