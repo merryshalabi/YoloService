@@ -40,7 +40,7 @@ jobs:
       - name: Copy service file and deploy script to EC2
         run: |
           scp yolo-dev.service ec2:~/yolo-dev.service
-          scp deploy.sh ec2:~/deploy-dev.sh
+          scp deploy-dev.sh ec2:~/deploy-dev.sh
           ssh ec2 "chmod +x ~/deploy-dev.sh"
 
       - name: Run deployment script on EC2
