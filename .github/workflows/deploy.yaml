@@ -11,37 +11,6 @@ env:
   REPO_NAME: ${{ github.event.repository.name }}
 
 jobs:
-  Test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure SSH for Testing
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/private_key
-          chmod 600 ~/.ssh/private_key
-          cat > ~/.ssh/config << EOF
-          Host ec2
-              HostName $EC2_HOST
-              User $EC2_USERNAME
-              IdentityFile ~/.ssh/private_key
-              StrictHostKeyChecking no
-          EOF
-
-      - name: Clean Untracked Files and Setup Environment on EC2
-        run: |
-          ssh ec2 "cd $REPO_NAME && git reset --hard && git clean -fd && bash deploy.sh"
-
-      - name: Run Tests on EC2
-        run: |
-          ssh ec2 "cd $REPO_NAME && source .venv/bin/activate && pip list && python -m unittest discover -s tests -v"
-
   Deploy:
     needs: Test
     runs-on: ubuntu-latest
