@@ -11,3 +11,6 @@
 *.pt
 
 uploads/
+
+__pycache__/
+*.pyc
