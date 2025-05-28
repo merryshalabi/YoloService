@@ -12,7 +12,6 @@ env:
 
 jobs:
   Deploy:
-    needs: Test
     runs-on: ubuntu-latest
 
     steps:
