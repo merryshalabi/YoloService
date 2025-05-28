@@ -22,11 +22,18 @@ source .venv/bin/activate
 echo "📦 Installing dependencies..."
 pip install --upgrade pip
 if [ -f "requirements.txt" ]; then
+  echo "📦 Installing from requirements.txt..."
   pip install -r requirements.txt --no-cache-dir
 else
-  pip install fastapi uvicorn[standard] ultralytics pillow --no-cache-dir
+  echo "⚠️ requirements.txt not found, skipping..."
 fi
 
+if [ -f "torch-requirements.txt" ]; then
+  echo "🔥 Installing from torch-requirements.txt..."
+  pip install -r torch-requirements.txt --no-cache-dir
+else
+  echo "⚠️ torch-requirements.txt not found, skipping..."
+fi
 # Verify uvicorn exists
 if [ ! -f ".venv/bin/uvicorn" ]; then
   echo "❌ uvicorn not found in .venv/bin"
