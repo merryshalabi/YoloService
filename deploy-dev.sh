@@ -1,51 +1,51 @@
 #!/bin/bash
 
-set -e  # Exit immediately on any error
+set -e  # Exit on any error
 
 echo "📦 Setting up Python virtual environment..."
 
 cd ~/YoloService
 
-# Create virtual environment if it doesn't exist
-if [ ! -d ".venv" ]; then
-  echo "🛠️ Creating .venv..."
-  python3 -m venv .venv
-fi
+# Clean up pip cache and old venv if needed
+echo "🧼 Cleaning cache and freeing space..."
+rm -rf ~/.cache/pip ~/.cache/*
+sudo apt clean
+df -h
 
-# Activate the virtual environment
+# Recreate the virtual environment cleanly
+echo "🛠️ Recreating .venv..."
+rm -rf .venv
+python3 -m venv .venv
 source .venv/bin/activate
 
 # Install dependencies
+echo "📦 Installing dependencies..."
+pip install --upgrade pip
 if [ -f "requirements.txt" ]; then
-  echo "📦 Installing from requirements.txt..."
-  pip install --upgrade pip
-  pip install -r requirements.txt
+  pip install -r requirements.txt --no-cache-dir
 else
-  echo "📦 Installing manually (no requirements.txt found)..."
-  pip install --upgrade pip
-  pip install fastapi uvicorn[standard] ultralytics pillow
+  pip install fastapi uvicorn[standard] ultralytics pillow --no-cache-dir
 fi
 
 # Verify uvicorn exists
 if [ ! -f ".venv/bin/uvicorn" ]; then
-  echo "❌ uvicorn not found in .venv"
+  echo "❌ uvicorn not found in .venv/bin"
   exit 1
 fi
 
 echo "✅ Python environment is ready."
 
-# Copy the systemd service file for dev
+# Copy and register systemd service
 echo "🔁 Copying yolo-dev.service to /etc/systemd/system/"
 sudo cp ~/yolo-dev.service /etc/systemd/system/
 
-# Reload and restart the service
-echo "🚀 Restarting yolo-dev.service..."
+echo "🔄 Reloading systemd and restarting service..."
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
-sudo systemctl restart yolo-dev.service
 sudo systemctl enable yolo-dev.service
+sudo systemctl restart yolo-dev.service
 
-# Verify service is running
+# Final check
 if ! systemctl is-active --quiet yolo-dev.service; then
   echo "❌ yolo-dev.service is not running."
   sudo systemctl status yolo-dev.service --no-pager
