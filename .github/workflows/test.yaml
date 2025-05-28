@@ -36,7 +36,16 @@ jobs:
 
       - name: Clean Untracked Files and Setup Environment on EC2
         run: |
-          ssh ec2 "cd $REPO_NAME && git reset --hard && git clean -fd && bash deploy.sh"
+            ssh ec2 "
+            if [ -d $REPO_NAME ]; then
+              cd $REPO_NAME && git fetch origin && git reset --hard origin/main
+            else
+              git clone $REPO_URL
+              cd $REPO_NAME
+            fi
+            bash deploy.sh
+          "
+
 
       - name: Run Tests on EC2
         run: |
