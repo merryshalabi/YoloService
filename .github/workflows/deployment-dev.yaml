@@ -33,9 +33,15 @@ jobs:
                 IdentityFile ~/.ssh/id_rsa
                 StrictHostKeyChecking no" > ~/.ssh/config
 
-      - name: Clone or Pull Repo on EC2
+      - name: Clone or Pull Repo on EC2 (force update if needed)
         run: |
-          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git pull origin dev; else git clone ${REPO_URL} ~/${REPO_NAME}; fi"
+          ssh ec2 "
+            if [ -d ~/${REPO_NAME} ]; then
+              cd ~/${REPO_NAME} && git fetch origin dev && git reset --hard origin/dev
+            else
+              git clone -b dev ${REPO_URL} ~/${REPO_NAME}
+            fi
+          "
 
       - name: Copy service file and deploy script to EC2
         run: |
