@@ -83,10 +83,44 @@ def save_detection_object(prediction_uid, label, score, box):
             VALUES (?, ?, ?, ?)
         """, (prediction_uid, label, score, str(box)))
 
-
 @app.post("/predict")
-async def predict(request: Request):
+def predict(file: UploadFile = File(...)):
+    """
+    Predict objects in an image
+    """
+    ext = os.path.splitext(file.filename)[1]
+    if ext not in [".jpg", ".jpeg", ".png"]:
+        raise HTTPException(status_code=400, detail="Invalid image file. Only JPG, JPEG, and PNG are allowed.")
+
     uid = str(uuid.uuid4())
+    original_path = os.path.join(UPLOAD_DIR, uid + ext)
+    predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
+
+    with open(original_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    results = model(original_path, device="cpu")
+
+    annotated_frame = results[0].plot()  # NumPy image with boxes
+    annotated_image = Image.fromarray(annotated_frame)
+    annotated_image.save(predicted_path)
+
+    save_prediction_session(uid, original_path, predicted_path)
+    
+    detected_labels = []
+    for box in results[0].boxes:
+        label_idx = int(box.cls[0].item())
+        label = model.names[label_idx]
+        score = float(box.conf[0])
+        bbox = box.xyxy[0].tolist()
+        save_detection_object(uid, label, score, bbox)
+        detected_labels.append(label)
+
+    return {
+        "prediction_uid": uid, 
+        "detection_count": len(results[0].boxes),
+        "labels": detected_labels
+    }
 
     try:
         body = await request.json()
@@ -130,7 +164,6 @@ async def predict(request: Request):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 @app.get("/prediction/{uid}")
