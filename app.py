@@ -75,10 +75,11 @@ def save_detection_object(prediction_uid, label, score, box):
             VALUES (?, ?, ?, ?)
         """, (prediction_uid, label, score, str(box)))
 
-
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    contents = await file.read()
+def predict(file: UploadFile = File(...)):
+    """
+    Predict objects in an image
+    """
     ext = os.path.splitext(file.filename)[1]
     if ext not in [".jpg", ".jpeg", ".png"]:
         raise HTTPException(status_code=400, detail="Invalid image file. Only JPG, JPEG, and PNG are allowed.")
@@ -88,9 +89,10 @@ async def predict(file: UploadFile = File(...)):
     predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
 
     with open(original_path, "wb") as f:
-        f.write(contents)
+        shutil.copyfileobj(file.file, f)
 
     results = model(original_path, device="cpu")
+
     annotated_frame = results[0].plot()  # NumPy image with boxes
     annotated_image = Image.fromarray(annotated_frame)
     annotated_image.save(predicted_path)
