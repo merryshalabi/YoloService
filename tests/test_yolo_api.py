@@ -1,37 +1,57 @@
 import unittest
 from fastapi.testclient import TestClient
-from app import app  # Make sure this import matches your main app file (app.py)
+from app import app
+import boto3
+import os
 
 client = TestClient(app)
 
+S3_BUCKET_NAME = "merry-polybot-images"
+TEST_IMAGE_NAME = "test_image.jpg"
+LOCAL_TEST_IMAGE_PATH = os.path.join("tests", TEST_IMAGE_NAME)
 
 class TestYoloAPI(unittest.TestCase):
 
+    @classmethod
+    def setUpClass(cls):
+        # Ensure test image exists in S3 before running tests
+        s3 = boto3.client("s3")
+        try:
+            s3.head_object(Bucket=S3_BUCKET_NAME, Key=TEST_IMAGE_NAME)
+        except s3.exceptions.ClientError:
+            print("Uploading test image to S3...")
+            s3.upload_file(LOCAL_TEST_IMAGE_PATH, S3_BUCKET_NAME, TEST_IMAGE_NAME)
+
     def test_predict_endpoint_valid_image(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            response = client.post("/predict", files={"file": image_file})
+        response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         self.assertEqual(response.status_code, 200)
         self.assertIn("prediction_uid", response.json())
 
-    def test_predict_endpoint_invalid_image(self):
-        response = client.post("/predict", files={"file": ("test.txt", b"Not an image file content")})
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("Invalid image file", response.text)
+    def test_predict_endpoint_invalid_image_extension(self):
+        response = client.post("/predict", json={"image_name": "invalid_file.txt"})
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("Invalid image file extension", response.text)
 
-    def test_predict_endpoint_missing_file(self):
-        response = client.post("/predict")
-        self.assertEqual(response.status_code, 422)  # Unprocessable Entity
-        error_details = response.json()["detail"]
-        self.assertTrue(any("Field required" in err["msg"] for err in error_details))
+    def test_predict_endpoint_missing_image_name(self):
+        response = client.post("/predict", json={})
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("Missing image_name", response.text)
+
+    def test_predict_image_not_found_in_s3(self):
+        response = client.post("/predict", json={"image_name": "nonexistent_image.jpg"})
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("An error occurred", response.text)
+
+    def test_predict_endpoint_invalid_json_payload(self):
+        response = client.post("/predict", data="not a json", headers={"Content-Type": "application/json"})
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("Expecting value", response.text)
 
     def test_prediction_details_valid(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            response = client.post("/predict", files={"file": image_file})
+        response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         uid = response.json()["prediction_uid"]
-
         response = client.get(f"/prediction/{uid}")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("uid", response.json())
         self.assertEqual(response.json()["uid"], uid)
 
     def test_prediction_details_invalid(self):
@@ -39,15 +59,8 @@ class TestYoloAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("Prediction not found", response.text)
 
-    def test_prediction_details_nonexistent(self):
-        response = client.get("/prediction/999999")
-        self.assertEqual(response.status_code, 404)
-        self.assertIn("Prediction not found", response.text)
-
     def test_predictions_by_label_existing(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            client.post("/predict", files={"file": image_file})
-
+        client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         response = client.get("/predictions/label/person")
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.json(), list)
@@ -58,9 +71,7 @@ class TestYoloAPI(unittest.TestCase):
         self.assertIn("Label not found", response.text)
 
     def test_predictions_by_score_valid(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            client.post("/predict", files={"file": image_file})
-
+        client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         response = client.get("/predictions/score/0.5")
         self.assertEqual(response.status_code, 200)
         self.assertIsInstance(response.json(), list)
@@ -71,10 +82,8 @@ class TestYoloAPI(unittest.TestCase):
         self.assertIn("Score must be between 0 and 1", response.text)
 
     def test_prediction_image_valid(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            response = client.post("/predict", files={"file": image_file})
+        response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         uid = response.json()["prediction_uid"]
-
         response = client.get(f"/prediction/{uid}/image", headers={"Accept": "image/png"})
         self.assertEqual(response.status_code, 200)
 
@@ -83,19 +92,24 @@ class TestYoloAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("Prediction not found", response.text)
 
-    def test_image_endpoint_original_valid(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            response = client.post("/predict", files={"file": image_file})
+    def test_prediction_image_not_acceptable_format(self):
+        response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
         uid = response.json()["prediction_uid"]
+        response = client.get(f"/prediction/{uid}/image", headers={"Accept": "application/json"})
+        self.assertEqual(response.status_code, 406)
+        self.assertIn("Client does not accept an image format", response.text)
 
+    def test_image_endpoint_original_valid(self):
+        response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
+        uid = response.json()["prediction_uid"]
         response = client.get(f"/image/original/{uid}.jpg")
         self.assertEqual(response.status_code, 200)
 
-    def test_image_endpoint_predicted_valid(self):
-        with open("tests/test_image.jpg", "rb") as image_file:
-            response = client.post("/predict", files={"file": image_file})
-        uid = response.json()["prediction_uid"]
 
+
+    def test_image_endpoint_predicted_valid(self):
+        response = client.post("/predict", json={"image_name": TEST_IMAGE_NAME})
+        uid = response.json()["prediction_uid"]
         response = client.get(f"/image/predicted/{uid}.jpg")
         self.assertEqual(response.status_code, 200)
 
@@ -104,12 +118,16 @@ class TestYoloAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("Invalid image type", response.text)
 
+    def test_get_image_file_not_found(self):
+        response = client.get("/image/original/nonexistent.jpg")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Image not found", response.text)
+
     def test_health_check(self):
         response = client.get("/health")
         self.assertEqual(response.status_code, 200)
         self.assertIn("status", response.json())
         self.assertEqual(response.json()["status"], "ok")
-
 
 if __name__ == "__main__":
     unittest.main()

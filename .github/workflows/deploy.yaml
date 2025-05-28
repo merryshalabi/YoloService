@@ -50,27 +50,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure SSH for Deployment
+      - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/private_key
-          chmod 600 ~/.ssh/private_key
-          cat > ~/.ssh/config << EOF
-          Host ec2
-              HostName $EC2_HOST
-              User $EC2_USERNAME
-              IdentityFile ~/.ssh/private_key
-              StrictHostKeyChecking no
-          EOF
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "Host ec2
+                HostName $EC2_HOST
+                User $EC2_USERNAME
+                IdentityFile ~/.ssh/id_rsa
+                StrictHostKeyChecking no" > ~/.ssh/config
 
-      - name: Copy script to EC2
+      - name: Clone or Pull Repo on EC2
         run: |
-          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git reset --hard && git clean -fd && git pull; else git clone ${REPO_URL} ~/${REPO_NAME}; fi"
+          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git pull origin main; else git clone ${REPO_URL} ~/${REPO_NAME}; fi"
 
-      - name: Execute Deployment on EC2
+      - name: Copy service file and deploy script to EC2
         run: |
-          ssh ec2 "cd $REPO_NAME && bash deploy.sh"
+          scp yolo.service ec2:~/yolo.service
+          scp deploy.sh ec2:~/deploy.sh
+          ssh ec2 "chmod +x ~/deploy.sh"
+
+      - name: Run deployment script on EC2
+        run: |
+          ssh ec2 "~/deploy.sh"
