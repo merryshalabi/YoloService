@@ -1,7 +1,7 @@
-name: Yolo Deploy
+name: Yolo test
 
 on:
-  push:
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -11,14 +11,13 @@ env:
   REPO_NAME: ${{ github.event.repository.name }}
 
 jobs:
-  Deploy:
+  Test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure SSH for Deployment
+      - name: Configure SSH for Testing
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -35,10 +34,11 @@ jobs:
               StrictHostKeyChecking no
           EOF
 
-      - name: Copy script to EC2
+      - name: Clean Untracked Files and Setup Environment on EC2
         run: |
-          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git reset --hard && git clean -fd && git pull; else git clone ${REPO_URL} ~/${REPO_NAME}; fi"
+          ssh ec2 "cd $REPO_NAME && git reset --hard && git clean -fd && bash deploy.sh"
 
-      - name: Execute Deployment on EC2
+      - name: Run Tests on EC2
         run: |
-          ssh ec2 "cd $REPO_NAME && bash deploy.sh"
+          ssh ec2 "cd $REPO_NAME && source .venv/bin/activate && pip list && python -m unittest discover -s tests -v"
+
