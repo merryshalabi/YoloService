@@ -41,6 +41,7 @@ jobs:
         run: |
           scp yolo.service ec2:~/yolo.service
           scp deploy.sh ec2:~/deploy.sh
+          scp otelcol-config.yaml ec2:~/otelcol-config.yaml 
           ssh ec2 "chmod +x ~/deploy.sh"
 
       - name: Run deployment script on EC2

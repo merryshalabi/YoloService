@@ -42,3 +42,29 @@ if ! systemctl is-active --quiet yolo-dev.service; then
 fi
 
 echo "✅ yolo-dev.service is running successfully."
+
+
+echo "📈 Installing OpenTelemetry Collector..."
+
+if ! command -v otelcol &> /dev/null; then
+  curl -LO https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.97.0/otelcol_0.97.0_linux_amd64.deb
+  sudo dpkg -i otelcol_0.97.0_linux_amd64.deb
+fi
+
+echo "⚙️ Copying OpenTelemetry config..."
+sudo cp "$PROJECT_DIR/otelcol-config.yaml" /etc/otelcol/config.yaml
+
+echo "🔁 Restarting otelcol..."
+sudo systemctl restart otelcol
+sudo systemctl enable otelcol
+
+# Optional: Health check
+echo "🔍 Verifying metrics endpoint..."
+curl -sSf http://localhost:8889/metrics | grep 'system_cpu_time' || {
+  echo "❌ OpenTelemetry metrics not available"
+  exit 1
+}
+
+echo "✅ OpenTelemetry Collector is running and exporting metrics on :8889"
+
+
