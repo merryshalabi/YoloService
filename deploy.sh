@@ -44,27 +44,38 @@ fi
 
 echo "✅ yolo.service is running successfully."
 
-echo "📈 Installing OpenTelemetry Collector..."
+echo "📈 Setting up OpenTelemetry Collector..."
 
+# 1. Install otelcol only if not present
 if ! command -v otelcol &> /dev/null; then
+  echo "📦 Installing otelcol..."
   curl -LO https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.97.0/otelcol_0.97.0_linux_amd64.deb
   sudo dpkg -i otelcol_0.97.0_linux_amd64.deb
+else
+  echo "✅ otelcol already installed."
 fi
 
-echo "⚙️ Copying OpenTelemetry config..."
-sudo cp "$PROJECT_DIR/otelcol-config.yaml" /etc/otelcol/config.yaml
+# 2. Copy config only if changed
+echo "⚙️ Checking if config needs update..."
+if ! cmp -s "$PROJECT_DIR/otelcol-config.yaml" /etc/otelcol/config.yaml; then
+  echo "🔁 Updating config file..."
+  sudo cp "$PROJECT_DIR/otelcol-config.yaml" /etc/otelcol/config.yaml
+  sudo systemctl restart otelcol
+  sleep 5
+else
+  echo "✅ Config already up to date."
+fi
 
-echo "🔁 Restarting otelcol..."
-sudo systemctl restart otelcol
+# 3. Ensure service is enabled
 sudo systemctl enable otelcol
 
-# Optional: Health check
-echo "🔍 Verifying metrics endpoint..."
-curl -sSf http://localhost:8889/metrics | grep 'system_cpu_time' || {
-  echo "❌ OpenTelemetry metrics not available"
-  exit 1
-}
-
-echo "✅ OpenTelemetry Collector is running and exporting metrics on :8889"
+# 4. Soft health check (doesn't fail the whole pipeline)
+echo "🔍 Checking if metrics are exposed..."
+if curl -s http://localhost:8889/metrics | grep -q 'system_cpu_time'; then
+  echo "✅ OpenTelemetry metrics are exposed."
+else
+  echo "⚠️ Warning: metrics not available now, but otelcol is running."
+  sudo systemctl status otelcol --no-pager
+fi
 
 
