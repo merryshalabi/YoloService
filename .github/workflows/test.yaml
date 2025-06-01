@@ -47,8 +47,11 @@ jobs:
           '
 
       - name: Run Tests on EC2
+        env:
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
           ssh ec2 "
+            export S3_BUCKET_NAME=$S3_BUCKET_NAME
             cd $REPO_NAME
             source .venv/bin/activate
             python -m unittest discover -s tests -v
