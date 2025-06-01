@@ -47,6 +47,8 @@ jobs:
           '
 
       - name: Run Tests on EC2
+        env:
+          S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
         run: |
           ssh ec2 "
             cd $REPO_NAME
