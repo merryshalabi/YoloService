@@ -12,6 +12,7 @@ LOCAL_TEST_IMAGE_PATH = os.path.join("tests", TEST_IMAGE_NAME)
 
 class TestYoloAPI(unittest.TestCase):
 
+
     @classmethod
     def setUpClass(cls):
         # Ensure test image exists in S3 before running tests
