@@ -7,13 +7,16 @@ services:
     ports:
       - "8081:8081"
     env_file: .env
-    environment:
-      - S3_BUCKET_NAME_DEV=${S3_BUCKET_NAME_DEV}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   otelcol:
     image: otel/opentelemetry-collector-contrib:latest
