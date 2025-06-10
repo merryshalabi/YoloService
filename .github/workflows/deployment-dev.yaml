@@ -13,7 +13,6 @@ on:
         required: true
       S3_BUCKET_NAME_DEV:
         required: true
-
   workflow_dispatch:
     inputs:
       image:
