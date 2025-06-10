@@ -48,4 +48,4 @@ jobs:
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       EC2_HOST_DEV: ${{ secrets.EC2_HOST_DEV }}
-      # Add any other secrets your Yolo service needs
+      S3_BUCKET_NAME_DEV: ${{ secrets.S3_BUCKET_NAME_DEV }}
