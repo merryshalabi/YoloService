@@ -103,6 +103,7 @@ jobs:
             sudo systemctl disable yolo-detection.service 2>/dev/null || echo "Service not enabled"
             
             echo "🐳 Running Docker Compose for Yolo Dev"
+            echo "🐳 Running Docker Compose for Yolo Dev"
             docker compose -f docker-compose.yolo-dev.yaml pull
             docker compose -f docker-compose.yolo-dev.yaml up -d --remove-orphans
             
