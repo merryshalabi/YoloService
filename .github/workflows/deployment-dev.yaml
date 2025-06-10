@@ -1,55 +1,118 @@
-name: Yolo Deploy
+name: Yolo Deploy Dev
 
 on:
-  push:
-    branches:
-      - dev
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+      EC2_HOST_DEV:
+        required: true
+      S3_BUCKET_NAME_DEV:
+        required: true
 
-env:
-  REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
-  REPO_NAME: ${{ github.event.repository.name }}
+  workflow_dispatch:
+    inputs:
+      image:
+        required: true
+        type: string
+        description: 'Docker image name to deploy'
 
 jobs:
-  Deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST_DEV }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "Host ec2
-                HostName $EC2_HOST
-                User $EC2_USERNAME
-                IdentityFile ~/.ssh/id_rsa
-                StrictHostKeyChecking no" > ~/.ssh/config
+      - name: Download image name artifact (fallback)
+        uses: actions/download-artifact@v4
+        with:
+          name: yolo-image-name
+          path: ./
+        continue-on-error: true
 
-      - name: Clone or Pull Repo on EC2 (force update if needed)
+      - name: Setup SSH key
         run: |
-          ssh ec2 "
-            if [ -d ~/${REPO_NAME} ]; then
-              cd ~/${REPO_NAME} && git fetch origin dev && git reset --hard origin/dev
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
+
+      - name: Determine image name
+        id: get-image
+        run: |
+          # Try input first
+          if [ -n "${{ inputs.image }}" ]; then
+            IMAGE_NAME="${{ inputs.image }}"
+            echo "✅ Using input image: $IMAGE_NAME"
+          # Fallback to artifact
+          elif [ -f "image_name.txt" ]; then
+            IMAGE_NAME=$(cat image_name.txt)
+            echo "✅ Using artifact image: $IMAGE_NAME"
+          else
+            echo "❌ No image name found!"
+            exit 1
+          fi
+          
+          echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "🚀 Final image name: $IMAGE_NAME"
+
+      - name: Create .env file
+        run: |
+          IMAGE_NAME="${{ steps.get-image.outputs.image }}"
+          
+          echo "YOLO_IMG_NAME=$IMAGE_NAME" > .env
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
+          
+          echo "📝 Contents of .env file:"
+          cat .env
+
+      - name: SSH and deploy using Docker Compose
+        run: |
+          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.EC2_HOST_DEV }}:/home/ubuntu/YoloService/.env
+          
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
+            echo "📁 Cloning or updating repo"
+            if [ -d "YoloService" ]; then
+              cd YoloService
+              git checkout dev
+              git pull origin dev
             else
-              git clone -b dev ${REPO_URL} ~/${REPO_NAME}
+              git clone --branch dev https://github.com/${{ github.repository }} YoloService
+              cd YoloService
             fi
-          "
-
-      - name: Copy service file and deploy script to EC2
-        run: |
-          scp yolo-dev.service ec2:~/yolo-dev.service
-          scp deploy-dev.sh ec2:~/deploy-dev.sh
-          scp otelcol-config.yaml ec2:~/otelcol-config.yaml 
-          ssh ec2 "chmod +x ~/deploy-dev.sh"
-
-      - name: Run deployment script on EC2
-        run: |
-          ssh ec2 "~/deploy-dev.sh"
+            
+            echo "📝 Checking .env file contents on server:"
+            cat .env
+            
+            echo "[+] Checking for Docker"
+            if ! command -v docker &> /dev/null; then
+              echo "📦 Installing Docker..."
+              curl -fsSL https://get.docker.com -o get-docker.sh
+              sh get-docker.sh
+              sudo usermod -aG docker $USER
+              newgrp docker
+            else
+              echo "✅ Docker already installed"
+            fi
+            
+            echo "🛑 Stopping existing systemd service if running"
+            sudo systemctl stop yolo-detection.service 2>/dev/null || echo "Service not running"
+            sudo systemctl disable yolo-detection.service 2>/dev/null || echo "Service not enabled"
+            
+            echo "🐳 Running Docker Compose for Yolo Dev"
+            docker compose -f docker-compose.yolo-dev.yaml pull
+            docker compose -f docker-compose.yolo-dev.yaml up -d --remove-orphans
+            
+            echo "🔍 Verifying Yolo service"
+            sleep 10
+            if curl -s http://localhost:8081/health 2>/dev/null; then
+              echo "✅ Yolo service is responding"
+            else
+              echo "⚠️ Yolo service may not be ready yet"
+              docker logs $(docker ps -qf "name=yolo") 2>/dev/null || echo "No yolo container found"
+            fi
+          EOF
