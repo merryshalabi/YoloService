@@ -68,8 +68,10 @@ jobs:
 
       - name: SSH and deploy using Docker Compose
         run: |
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} "mkdir -p /home/ubuntu/YoloService"
+    
           scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.EC2_HOST_DEV }}:/home/ubuntu/YoloService/.env
-          
+
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
             echo "📁 Cloning or updating repo"
             if [ -d "YoloService" ]; then
