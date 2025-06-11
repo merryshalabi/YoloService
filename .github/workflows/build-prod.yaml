@@ -1,0 +1,49 @@
+name: Yolo Build Prod
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.save-image.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build and push Docker image
+        run: |
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/yolo-prod:${{ github.run_number }}
+          echo "🔧 Built image: $IMAGE_NAME"
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+          echo "$IMAGE_NAME" > image_name.txt
+
+      - name: Save image name as output
+        id: save-image
+        run: |
+          IMAGE_NAME=$(cat image_name.txt)
+          echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "✅ Saved image output: $IMAGE_NAME"
+
+      - name: Upload image name as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yolo-image-name
+          path: image_name.txt
+
+  deploy:
+    needs: build
+    uses: merryshalabi/YoloService/.github/workflows/deployment-prod.yaml@main
+    with:
+      image: ${{ needs.build.outputs.image }}
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      S3_BUCKET_NAME_PROD: ${{ secrets.S3_BUCKET_NAME_PROD }}
