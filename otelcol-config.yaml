@@ -1,14 +1,10 @@
 receivers:
-  hostmetrics:
-    collection_interval: 15s
-    scrapers:
-      cpu:
-      memory:
-      disk:
-      filesystem:
-      load:
-      network:
-      processes:
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'yolo'
+          static_configs:
+            - targets: ['yolo:8081']
 
 exporters:
   prometheus:
@@ -17,5 +13,5 @@ exporters:
 service:
   pipelines:
     metrics:
-      receivers: [hostmetrics]
+      receivers: [prometheus]
       exporters: [prometheus]
