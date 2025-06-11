@@ -10,12 +10,11 @@ S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 TEST_IMAGE_NAME = "test_image.jpg"
 LOCAL_TEST_IMAGE_PATH = os.path.join("tests", TEST_IMAGE_NAME)
 
-class TestYoloAPI(unittest.TestCase):
 
+class TestYoloAPI(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # Ensure test image exists in S3 before running tests
         s3 = boto3.client("s3")
         try:
             s3.head_object(Bucket=S3_BUCKET_NAME, Key=TEST_IMAGE_NAME)
@@ -30,12 +29,12 @@ class TestYoloAPI(unittest.TestCase):
 
     def test_predict_endpoint_invalid_image_extension(self):
         response = client.post("/predict", json={"image_name": "invalid_file.txt"})
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Invalid image file extension", response.text)
 
     def test_predict_endpoint_missing_image_name(self):
         response = client.post("/predict", json={})
-        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.status_code, 400)
         self.assertIn("Missing image_name", response.text)
 
     def test_predict_image_not_found_in_s3(self):
@@ -125,8 +124,8 @@ class TestYoloAPI(unittest.TestCase):
     def test_health_check(self):
         response = client.get("/health")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("status", response.json())
         self.assertEqual(response.json()["status"], "ok")
+
 
 if __name__ == "__main__":
     unittest.main()
