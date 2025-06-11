@@ -42,7 +42,7 @@ jobs:
 
   deploy:
     needs: build
-    uses: ./.github/workflows/deployment-dev.yaml
+    uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev
     with:
       image: ${{ needs.build.outputs.image }}
     secrets:
