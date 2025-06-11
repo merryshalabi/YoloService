@@ -13,6 +13,7 @@ on:
         required: true
       S3_BUCKET_NAME_DEV:
         required: true
+
   workflow_dispatch:
     inputs:
       image:
@@ -23,6 +24,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -52,40 +54,41 @@ jobs:
             echo "❌ No image name found!"
             exit 1
           fi
-          
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
-          echo "🚀 Final image name: $IMAGE_NAME"
 
       - name: Create .env file
         run: |
           IMAGE_NAME="${{ steps.get-image.outputs.image }}"
-          
           echo "YOLO_IMG_NAME=$IMAGE_NAME" > .env
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
-          
           echo "📝 Contents of .env file:"
           cat .env
 
       - name: SSH and deploy using Docker Compose
         run: |
-          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} "mkdir -p /home/ubuntu/YoloService"
-    
-          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.EC2_HOST_DEV }}:/home/ubuntu/YoloService/.env
-
+          # Clone or update repo on remote server first
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
-            echo "📁 Cloning or updating repo"
             if [ -d "YoloService" ]; then
+              echo "📁 Repo already exists, updating..."
               cd YoloService
               git checkout dev
               git pull origin dev
             else
+              echo "📁 Cloning repo..."
               git clone --branch dev https://github.com/${{ github.repository }} YoloService
-              cd YoloService
             fi
-            
-            echo "📝 Checking .env file contents on server:"
+EOF
+
+          # Copy .env AFTER repo is guaranteed to exist
+          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.EC2_HOST_DEV }}:/home/ubuntu/YoloService/.env
+
+          # Deploy
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
+            cd YoloService
+
+            echo "📝 Checking .env file contents:"
             cat .env
-            
+
             echo "[+] Checking for Docker"
             if ! command -v docker &> /dev/null; then
               echo "📦 Installing Docker..."
@@ -96,15 +99,15 @@ jobs:
             else
               echo "✅ Docker already installed"
             fi
-            
+
             echo "🛑 Stopping existing systemd service if running"
             sudo systemctl stop yolo-detection.service 2>/dev/null || echo "Service not running"
             sudo systemctl disable yolo-detection.service 2>/dev/null || echo "Service not enabled"
-            
+
             echo "🐳 Running Docker Compose for Yolo Dev"
             docker compose -f docker-compose.dev.yaml pull
             docker compose -f docker-compose.dev.yaml up -d --remove-orphans
-            
+
             echo "🔍 Verifying Yolo service"
             sleep 10
             if curl -s http://localhost:8081/health 2>/dev/null; then
@@ -113,4 +116,4 @@ jobs:
               echo "⚠️ Yolo service may not be ready yet"
               docker logs $(docker ps -qf "name=yolo") 2>/dev/null || echo "No yolo container found"
             fi
-          EOF
+EOF
