@@ -2,6 +2,11 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Install libGL for OpenCV + system cleanup tools
+RUN apt-get update && \
+    apt-get install -y libgl1 && \
+    rm -rf /var/lib/apt/lists/*
+
 # Upgrade pip
 RUN pip install --upgrade pip
 
