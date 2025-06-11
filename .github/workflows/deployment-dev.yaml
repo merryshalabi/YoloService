@@ -68,13 +68,15 @@ jobs:
         run: |
           # Clone or update repo on remote server first
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
-            if [ -d "YoloService" ]; then
-              echo "📁 Repo already exists, updating..."
+            cd /home/ubuntu
+            if [ -d "YoloService" ] && [ -d "YoloService/.git" ]; then
+              echo "📁 Git repo already exists, updating..."
               cd YoloService
               git checkout dev
               git pull origin dev
             else
-              echo "📁 Cloning repo..."
+              echo "📁 Removing existing directory and cloning fresh..."
+              rm -rf YoloService
               git clone --branch dev https://github.com/${{ github.repository }} YoloService
               cd YoloService
             fi
