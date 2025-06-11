@@ -23,8 +23,6 @@ jobs:
           echo "🔧 Built image: $IMAGE_NAME"
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
-          
-          # Save to file for artifact
           echo "$IMAGE_NAME" > image_name.txt
 
       - name: Save image name as output
@@ -42,7 +40,7 @@ jobs:
 
   deploy:
     needs: build
-    uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev
+    uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev  # ✅ Use full repo path and branch
     with:
       image: ${{ needs.build.outputs.image }}
     secrets:

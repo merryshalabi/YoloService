@@ -76,8 +76,9 @@ jobs:
             else
               echo "📁 Cloning repo..."
               git clone --branch dev https://github.com/${{ github.repository }} YoloService
+              cd YoloService
             fi
-EOF
+          EOF
 
           # Copy .env AFTER repo is guaranteed to exist
           scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.EC2_HOST_DEV }}:/home/ubuntu/YoloService/.env
@@ -95,7 +96,8 @@ EOF
               curl -fsSL https://get.docker.com -o get-docker.sh
               sh get-docker.sh
               sudo usermod -aG docker $USER
-              newgrp docker
+              # Instead of newgrp, we'll use sudo for docker commands below
+              echo "✅ Docker installed, user added to docker group"
             else
               echo "✅ Docker already installed"
             fi
@@ -105,8 +107,9 @@ EOF
             sudo systemctl disable yolo-detection.service 2>/dev/null || echo "Service not enabled"
 
             echo "🐳 Running Docker Compose for Yolo Dev"
-            docker compose -f docker-compose.dev.yaml pull
-            docker compose -f docker-compose.dev.yaml up -d --remove-orphans
+            # Use sudo for docker commands in case user group membership hasn't taken effect
+            sudo docker compose -f docker-compose.dev.yaml pull
+            sudo docker compose -f docker-compose.dev.yaml up -d --remove-orphans
 
             echo "🔍 Verifying Yolo service"
             sleep 10
@@ -114,6 +117,6 @@ EOF
               echo "✅ Yolo service is responding"
             else
               echo "⚠️ Yolo service may not be ready yet"
-              docker logs $(docker ps -qf "name=yolo") 2>/dev/null || echo "No yolo container found"
+              sudo docker logs $(sudo docker ps -qf "name=yolo") 2>/dev/null || echo "No yolo container found"
             fi
-EOF
+          EOF
