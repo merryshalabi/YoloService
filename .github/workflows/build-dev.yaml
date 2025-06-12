@@ -52,7 +52,7 @@ jobs:
 
   deploy:
     needs: build
-    uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev  # ✅ Use full repo path and branch
+    uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev
     with:
       image: ${{ needs.build.outputs.image }}
     secrets:
