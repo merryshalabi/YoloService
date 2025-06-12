@@ -25,11 +25,12 @@ services:
       - "8889:8889"
     volumes:
       - ./otelcol-config.yaml:/etc/otelcol/config.yaml
-      - /proc:/hostfs/proc:ro
-      - /sys:/hostfs/sys:ro
+      - /proc:/host_proc:ro
+      - /sys:/host_sys:ro
     environment:
-      - HOST_PROC=/hostfs/proc
-      - HOST_SYS=/hostfs/sys
+      - HOST_PROC=/host_proc
+      - HOST_SYS=/host_sys`
+
     networks:
       - default
 
