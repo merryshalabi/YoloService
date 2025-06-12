@@ -19,18 +19,18 @@ services:
         max-file: "3"
 
   otelcol:
-    image: otel/opentelemetry-collector-contrib:0.98.0  # replace latest with a pinned version
-    command: ["--config", "/etc/otelcol/config.yaml"]
+    image: otel/opentelemetry-collector-contrib:latest
     ports:
-      - "8889:8889"
+      - "8889:8889"  # Prometheus scrape endpoint
     volumes:
       - ./otelcol-config.yaml:/etc/otelcol/config.yaml
-      - /proc:/host_proc:ro
-      - /sys:/host_sys:ro
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
     environment:
-      - HOST_PROC=/host_proc
-      - HOST_SYS=/host_sys
-    network_mode: host  # required for host metrics
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+    network_mode: host
+    restart: always
 
 networks:
   observability:
