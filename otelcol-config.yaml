@@ -1,6 +1,7 @@
 receivers:
   hostmetrics:
-    collection_interval: 15s
+    collection_interval: 10s
+    root_path: /host_proc
     scrapers:
       cpu:
       memory:
@@ -8,7 +9,6 @@ receivers:
       filesystem:
       load:
       network:
-      processes:
 
 exporters:
   prometheus:
