@@ -6,7 +6,7 @@ services:
       - "8081:8081"
     env_file: .env
     networks:
-      - default
+      - observability
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
       interval: 30s
@@ -19,7 +19,7 @@ services:
         max-file: "3"
 
   otelcol:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.98.0  # replace latest with a pinned version
     command: ["--config", "/etc/otelcol/config.yaml"]
     ports:
       - "8889:8889"
@@ -29,11 +29,8 @@ services:
       - /sys:/host_sys:ro
     environment:
       - HOST_PROC=/host_proc
-      - HOST_SYS=/host_sys`
-
-    networks:
-      - default
+      - HOST_SYS=/host_sys
+    network_mode: host  # required for host metrics
 
 networks:
-  default:
-    name: observability
+  observability:
