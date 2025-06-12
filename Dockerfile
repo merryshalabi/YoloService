@@ -1,36 +1,32 @@
 FROM python:3.10-slim
 
-WORKDIR /app
+# Use environment variable for non-interactive apt installs
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required system libraries for OpenCV and general stability
-RUN apt-get update && apt-get install -y \
+# Install required system libraries in one layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libgl1 \
     libsm6 \
     libxext6 \
     libxrender1 \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip
-RUN pip install --upgrade pip
+# Set working directory
+WORKDIR /app
 
-# Install lightweight Python dependencies (FastAPI, boto3, etc.)
+# Copy only requirements first (for caching)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install heavy torch and ultralytics dependencies
 COPY torch-requirements.txt .
-RUN pip install --no-cache-dir -r torch-requirements.txt
 
-# Copy the application code
+# Upgrade pip and install dependencies in one layer
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r torch-requirements.txt
+
+# Copy the rest of the source code (only after deps are installed to leverage cache)
 COPY . .
 
-# Create required directories at build-time (optional, for local runs)
-RUN mkdir -p uploads/original uploads/predicted
-
-# Expose the FastAPI port
-EXPOSE 8081
-
-# Run the FastAPI server with multiple workers
+# Run the FastAPI server
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8081", "--workers", "4"]
