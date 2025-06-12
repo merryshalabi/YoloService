@@ -3,13 +3,13 @@ receivers:
     config:
       scrape_configs:
         - job_name: 'yolo'
-          metrics_path: /metrics  # <- change this if needed
+          metrics_path: /metrics
           static_configs:
             - targets: ['yolo:8081']
 
   hostmetrics:
     collection_interval: 10s
-    root_path: /hostfs
+    root_path: /host_proc
     scrapers:
       cpu:
       memory:
