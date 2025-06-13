@@ -22,8 +22,6 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          REPO_NAME: YoloService
-          REPO_URL: https://github.com/${{ github.repository }}.git
 
         run: |
           mkdir -p ~/.ssh
@@ -39,15 +37,29 @@ jobs:
 
       - name: Clean Untracked Files and Setup Environment on EC2
         run: |
-          ssh ec2 '
-            if [ -d "$REPO_NAME" ]; then
-              cd "$REPO_NAME" && git fetch origin && git reset --hard origin/main
+          ssh ec2 "
+            REPO_NAME='YoloService'
+            REPO_URL='https://github.com/${{ github.repository }}.git'
+      
+            echo '📂 Checking repo on EC2...'
+            if [ -d \"\$REPO_NAME\" ]; then
+              cd \"\$REPO_NAME\"
+              git fetch origin && git reset --hard origin/main
             else
-              git clone "$REPO_URL"
-              cd "$REPO_NAME"
+              git clone \"\$REPO_URL\"
+              cd \"\$REPO_NAME\"
             fi
-            bash deploy.sh
-          '
+      
+            echo '🚀 Running deploy.sh...'
+            if [ -f deploy.sh ]; then
+              chmod +x deploy.sh
+              ./deploy.sh
+            else
+              echo '❌ deploy.sh not found in: \$(pwd)'
+              ls -la
+              exit 1
+            fi
+          "
 
       - name: Run Tests on EC2
         env:
