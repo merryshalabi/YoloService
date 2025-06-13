@@ -9,6 +9,7 @@ sudo apt install -y python3 python3-pip python3-venv git unzip wget docker.io do
 # Optional: add user to docker group
 sudo usermod -aG docker $USER || true
 
+
 # Set project directory
 PROJECT_DIR=~/YoloService
 
