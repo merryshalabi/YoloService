@@ -13,6 +13,7 @@ sudo usermod -aG docker $USER || true
 # Set project directory
 PROJECT_DIR=~/YoloService
 
+
 echo "🐍 Setting up Python environment..."
 if [ ! -d "$PROJECT_DIR/venv" ]; then
   python3 -m venv "$PROJECT_DIR/.venv"
