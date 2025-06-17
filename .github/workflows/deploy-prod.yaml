@@ -102,13 +102,15 @@ jobs:
               echo "Docker already installed"
             fi
 
-            echo "Stopping existing systemd service if running"
-            sudo systemctl stop yolo-detection.service 2>/dev/null || echo "Service not running"
-            sudo systemctl disable yolo-detection.service 2>/dev/null || echo "Service not enabled"
+            echo "Stopping and removing all containers"
+            sudo docker ps -aq | xargs -r sudo docker stop
+            sudo docker ps -aq | xargs -r sudo docker rm
             
-            echo "Cleaning up old containers and images"
-            sudo docker container prune -f
-            sudo docker image prune -af
+            echo "Removing all Docker images"
+            sudo docker images -aq | xargs -r sudo docker rmi -f
+            
+            echo "Pruning unused data (volumes, networks, build cache)"
+            sudo docker system prune -af --volumes
 
             echo "Running Docker Compose for Yolo Prod"
             sudo docker compose -f docker-compose.prod.yaml pull
