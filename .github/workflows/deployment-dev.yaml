@@ -109,6 +109,8 @@ jobs:
             echo "Cleaning up old containers and images"
             sudo docker container prune -f
             sudo docker image prune -af
+            sudo docker system prune -af --volumes
+            sudo rm -rf /var/lib/docker/tmp/*
 
             echo "Running Docker Compose for Yolo Dev"
             sudo docker compose -f docker-compose.dev.yaml pull
