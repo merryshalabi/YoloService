@@ -6,12 +6,6 @@ on:
       image:
         required: true
         type: string
-      STORAGE_TYPE:
-        required: true
-        type: string
-      DYNAMODB_TABLE:
-        required: false
-        type: string
     secrets:
       SSH_PRIVATE_KEY:
         required: true
@@ -19,7 +13,10 @@ on:
         required: true
       S3_BUCKET_NAME_DEV:
         required: true
-
+      STORAGE_TYPE:
+        required: true
+      DYNAMODB_TABLE:
+        required: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -60,8 +57,8 @@ jobs:
           IMAGE_NAME="${{ steps.get-image.outputs.image }}"
           echo "YOLO_IMG_NAME=$IMAGE_NAME" > .env
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
-          echo "STORAGE_TYPE=${{ inputs.STORAGE_TYPE }}" >> .env
-          echo "DYNAMODB_TABLE=${{ inputs.DYNAMODB_TABLE }}" >> .env
+          echo "STORAGE_TYPE=${{ secrets.STORAGE_TYPE }}" >> .env
+          echo "DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}" >> .env
           echo "📝 Contents of .env file:"
           cat .env
 
