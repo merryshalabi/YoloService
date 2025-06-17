@@ -43,7 +43,6 @@ jobs:
     uses: merryshalabi/YoloService/.github/workflows/deploy-prod.yaml@main
     with:
       image: ${{ needs.build.outputs.image }}
-
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       EC2_HOST: ${{ secrets.EC2_HOST }}

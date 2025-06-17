@@ -6,12 +6,6 @@ on:
       image:
         required: true
         type: string
-      STORAGE_TYPE:
-        required: true
-        type: string
-      DYNAMODB_TABLE:
-        required: false
-        type: string
     secrets:
       SSH_PRIVATE_KEY:
         required: true
@@ -19,6 +13,10 @@ on:
         required: true
       S3_BUCKET_NAME_PROD:
         required: true
+      STORAGE_TYPE:
+        required: true
+      DYNAMODB_TABLE:
+        required: false
 
 
 jobs:
