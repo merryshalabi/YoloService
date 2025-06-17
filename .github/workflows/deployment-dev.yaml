@@ -6,6 +6,12 @@ on:
       image:
         required: true
         type: string
+      STORAGE_TYPE:
+        required: true
+        type: string
+      DYNAMODB_TABLE:
+        required: false
+        type: string
     secrets:
       SSH_PRIVATE_KEY:
         required: true
@@ -13,13 +19,6 @@ on:
         required: true
       S3_BUCKET_NAME_DEV:
         required: true
-
-  workflow_dispatch:
-    inputs:
-      image:
-        required: true
-        type: string
-        description: 'Docker image name to deploy'
 
 jobs:
   deploy:
@@ -46,12 +45,12 @@ jobs:
         run: |
           if [ -n "${{ inputs.image }}" ]; then
             IMAGE_NAME="${{ inputs.image }}"
-            echo "✅ Using input image: $IMAGE_NAME"
+            echo "Using input image: $IMAGE_NAME"
           elif [ -f "image_name.txt" ]; then
             IMAGE_NAME=$(cat image_name.txt)
-            echo "✅ Using artifact image: $IMAGE_NAME"
+            echo "Using artifact image: $IMAGE_NAME"
           else
-            echo "❌ No image name found!"
+            echo "No image name found!"
             exit 1
           fi
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
@@ -61,8 +60,11 @@ jobs:
           IMAGE_NAME="${{ steps.get-image.outputs.image }}"
           echo "YOLO_IMG_NAME=$IMAGE_NAME" > .env
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
+          echo "STORAGE_TYPE=${{ inputs.STORAGE_TYPE }}" >> .env
+          echo "DYNAMODB_TABLE=${{ inputs.DYNAMODB_TABLE }}" >> .env
           echo "📝 Contents of .env file:"
           cat .env
+
 
       - name: SSH and deploy using Docker Compose
         run: |
@@ -70,12 +72,12 @@ jobs:
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
             cd /home/ubuntu
             if [ -d "YoloService" ] && [ -d "YoloService/.git" ]; then
-              echo "📁 Git repo already exists, updating..."
+              echo "Git repo already exists, updating..."
               cd YoloService
               git checkout dev
               git pull origin dev
             else
-              echo "📁 Removing existing directory and cloning fresh..."
+              echo "Removing existing directory and cloning fresh..."
               rm -rf YoloService
               git clone --branch dev https://github.com/${{ github.repository }} YoloService
               cd YoloService
@@ -89,36 +91,38 @@ jobs:
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST_DEV }} << 'EOF'
             cd YoloService
 
-            echo "📝 Checking .env file contents:"
+            echo "Checking .env file contents:"
             cat .env
 
             echo "[+] Checking for Docker"
             if ! command -v docker &> /dev/null; then
-              echo "📦 Installing Docker..."
+              echo "Installing Docker..."
               curl -fsSL https://get.docker.com -o get-docker.sh
               sh get-docker.sh
               sudo usermod -aG docker $USER
-              # Instead of newgrp, we'll use sudo for docker commands below
-              echo "✅ Docker installed, user added to docker group"
+              echo "Docker installed, user added to docker group"
             else
-              echo "✅ Docker already installed"
+              echo " Docker already installed"
             fi
 
-            echo "🛑 Stopping existing systemd service if running"
+            echo " Stopping existing systemd service if running"
             sudo systemctl stop yolo-detection.service 2>/dev/null || echo "Service not running"
             sudo systemctl disable yolo-detection.service 2>/dev/null || echo "Service not enabled"
+          
+            echo "Cleaning up old containers and images"
+            sudo docker container prune -f
+            sudo docker image prune -af
 
-            echo "🐳 Running Docker Compose for Yolo Dev"
-            # Use sudo for docker commands in case user group membership hasn't taken effect
+            echo "Running Docker Compose for Yolo Dev"
             sudo docker compose -f docker-compose.dev.yaml pull
             sudo docker compose -f docker-compose.dev.yaml up -d --remove-orphans
 
             echo "🔍 Verifying Yolo service"
             sleep 10
             if curl -s http://localhost:8081/health 2>/dev/null; then
-              echo "✅ Yolo service is responding"
+              echo "Yolo service is responding"
             else
-              echo "⚠️ Yolo service may not be ready yet"
+              echo "Yolo service may not be ready yet"
               sudo docker logs $(sudo docker ps -qf "name=yolo") 2>/dev/null || echo "No yolo container found"
             fi
           EOF

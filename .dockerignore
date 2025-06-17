@@ -1,0 +1,33 @@
+# Python virtual environments
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+
+
+uploads/
+
+predictions.db
+
+.git
+.gitignore
+
+.idea/
+.vscode/
+
+
+tests/
+
+Dockerfile.patched
+*.tar
+*.zip
+image_name.txt
+
+# Scratch or notes
+scratch.txt
