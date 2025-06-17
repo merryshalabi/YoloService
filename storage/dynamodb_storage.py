@@ -4,6 +4,7 @@ from typing import List, Dict
 from storage.base import BaseStorage
 import os
 import hashlib
+import traceback
 
 class DynamoDBStorage(BaseStorage):
     def __init__(self, table_name: str = None):
@@ -19,15 +20,23 @@ class DynamoDBStorage(BaseStorage):
             "predicted_image": predicted_image
         })
 
+
+
     def save_detection(self, prediction_uid: str, label: str, score: float, box: List[float]) -> None:
-        detection_id = hashlib.md5(f"{label}-{score}-{box}".encode()).hexdigest()
-        self.table.put_item(Item={
-            "PK": f"PRED#{prediction_uid}",
-            "SK": f"DETECT#{label}#{detection_id}",
-            "label": label,
-            "score": score,
-            "box": box
-        })
+        try:
+            detection_id = hashlib.md5(f"{label}-{score}-{box}".encode()).hexdigest()
+            item = {
+                "PK": f"PRED#{prediction_uid}",
+                "SK": f"DETECT#{label}#{detection_id}",
+                "label": label,
+                "score": float(score),  # Make sure it's float, not Decimal
+                "box": [float(x) for x in box]  # Ensure it's list of floats, not Decimal
+            }
+            print("✅ Saving detection item:", item)
+            self.table.put_item(Item=item)
+        except Exception:
+            print("❌ Failed to save detection:")
+            traceback.print_exc()
 
     def get_prediction(self, uid: str) -> Dict:
         response = self.table.query(

@@ -71,6 +71,7 @@ async def predict(request: Request):
 
 
         detected_labels = []
+        print(f"📦 Found {len(results[0].boxes)} boxes")
         for box in results[0].boxes:
             label_idx = int(box.cls[0].item())
             label = model.names[label_idx]
