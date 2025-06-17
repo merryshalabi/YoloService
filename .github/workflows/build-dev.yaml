@@ -49,11 +49,12 @@ jobs:
     uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev
     with:
       image: ${{ needs.build.outputs.image }}
+      STORAGE_TYPE: ${{ secrets.STORAGE_TYPE_DEV }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE_DEV }}
 
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       EC2_HOST_DEV: ${{ secrets.EC2_HOST_DEV }}
       S3_BUCKET_NAME_DEV: ${{ secrets.S3_BUCKET_NAME_DEV }}
-      STORAGE_TYPE: ${{ secrets.STORAGE_TYPE_DEV }}
-      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE_DEV }}
+
 
