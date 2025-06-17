@@ -61,8 +61,8 @@ jobs:
           IMAGE_NAME="${{ steps.get-image.outputs.image }}"
           echo "YOLO_IMG_NAME=$IMAGE_NAME" > .env
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_PROD }}" >> .env
-          echo "STORAGE_TYPE=${{ inputs.STORAGE_TYPE }}" >> .env
-          echo "DYNAMODB_TABLE=${{ inputs.DYNAMODB_TABLE }}" >> .env
+          echo "STORAGE_TYPE=${{ secrets.STORAGE_TYPE }}" >> .env
+          echo "DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}" >> .env
           echo "Contents of .env file:"
           cat .env
 
