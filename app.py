@@ -1,90 +1,40 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Request
-from fastapi.responses import FileResponse, Response
-from ultralytics import YOLO
-from PIL import Image
-import sqlite3
 import os
 import uuid
-import shutil
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
+from PIL import Image
+from ultralytics import YOLO
 import boto3
-from botocore.exceptions import NoCredentialsError
-import json
-from fastapi import Body
-
-# Disable GPU usage
 import torch
 
+from storage.sqlite_storage import SQLiteStorage
+from storage.dynamodb_storage import DynamoDBStorage
+
+# Disable GPU usage
 torch.cuda.is_available = lambda: False
 
+# Initialize FastAPI
 app = FastAPI()
 
+# Set up directories
 UPLOAD_DIR = "uploads/original"
 PREDICTED_DIR = "uploads/predicted"
-DB_PATH = "predictions.db"
-
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PREDICTED_DIR, exist_ok=True)
 
-# Download the AI model (tiny model ~6MB)
+# Load YOLO model
 model = YOLO("yolov8n.pt")
+
+# Set up S3
 S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME")
 s3_client = boto3.client("s3")
 
-
-# Initialize SQLite
-def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        # Create the predictions main table to store the prediction session
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS prediction_sessions (
-                uid TEXT PRIMARY KEY,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                original_image TEXT,
-                predicted_image TEXT
-            )
-        """)
-
-        # Create the objects table to store individual detected objects in a given image
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS detection_objects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                prediction_uid TEXT,
-                label TEXT,
-                score REAL,
-                box TEXT,
-                FOREIGN KEY (prediction_uid) REFERENCES prediction_sessions (uid)
-            )
-        """)
-
-        # Create index for faster queries
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_prediction_uid ON detection_objects (prediction_uid)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_label ON detection_objects (label)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_score ON detection_objects (score)")
-
-
-init_db()
-
-
-def save_prediction_session(uid, original_image, predicted_image):
-    """
-    Save prediction session to database
-    """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            INSERT INTO prediction_sessions (uid, original_image, predicted_image)
-            VALUES (?, ?, ?)
-        """, (uid, original_image, predicted_image))
-
-
-def save_detection_object(prediction_uid, label, score, box):
-    """
-    Save detection object to database
-    """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            INSERT INTO detection_objects (prediction_uid, label, score, box)
-            VALUES (?, ?, ?, ?)
-        """, (prediction_uid, label, score, str(box)))
+# Select storage backend
+storage_type = os.getenv("STORAGE_TYPE", "sqlite")
+if storage_type == "dynamodb":
+    storage = DynamoDBStorage()
+else:
+    storage = SQLiteStorage()
 
 
 @app.post("/predict")
@@ -114,7 +64,11 @@ async def predict(request: Request):
         with open(predicted_path, "rb") as f:
             s3_client.upload_fileobj(f, S3_BUCKET_NAME, os.path.basename(predicted_path))
 
-        save_prediction_session(uid, original_path, predicted_path)
+        original_s3_key = image_name  # already the key in S3
+        predicted_s3_key = os.path.basename(predicted_path)
+
+        storage.save_prediction(uid, original_s3_key, predicted_s3_key)
+
 
         detected_labels = []
         for box in results[0].boxes:
@@ -122,7 +76,7 @@ async def predict(request: Request):
             label = model.names[label_idx]
             score = float(box.conf[0])
             bbox = box.xyxy[0].tolist()
-            save_detection_object(uid, label, score, bbox)
+            storage.save_detection(uid, label, score, bbox)
             detected_labels.append(label)
 
         return {
@@ -137,83 +91,34 @@ async def predict(request: Request):
 
 @app.get("/prediction/{uid}")
 def get_prediction_by_uid(uid: str):
-    """
-    Get prediction session by uid with all detected objects
-    """
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        # Get prediction session
-        session = conn.execute("SELECT * FROM prediction_sessions WHERE uid = ?", (uid,)).fetchone()
-        if not session:
-            raise HTTPException(status_code=404, detail="Prediction not found")
-
-        # Get all detection objects for this prediction
-        objects = conn.execute(
-            "SELECT * FROM detection_objects WHERE prediction_uid = ?",
-            (uid,)
-        ).fetchall()
-
-        return {
-            "uid": session["uid"],
-            "timestamp": session["timestamp"],
-            "original_image": session["original_image"],
-            "predicted_image": session["predicted_image"],
-            "detection_objects": [
-                {
-                    "id": obj["id"],
-                    "label": obj["label"],
-                    "score": obj["score"],
-                    "box": obj["box"]
-                } for obj in objects
-            ]
-        }
+    try:
+        return storage.get_prediction(uid)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/predictions/label/{label}")
 def get_predictions_by_label(label: str):
-    """
-    Get prediction sessions containing objects with specified label
-    """
     if label not in model.names.values():
         raise HTTPException(status_code=404, detail="Label not found")
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("""
-            SELECT DISTINCT ps.uid, ps.timestamp
-            FROM prediction_sessions ps
-            JOIN detection_objects do ON ps.uid = do.prediction_uid
-            WHERE do.label = ?
-        """, (label,)).fetchall()
-
-        return [{"uid": row["uid"], "timestamp": row["timestamp"]} for row in rows]
+    try:
+        return storage.get_predictions_by_label(label)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/predictions/score/{min_score}")
 def get_predictions_by_score(min_score: float):
-    """
-    Get prediction sessions containing objects with score >= min_score
-    """
     if not (0.0 <= min_score <= 1.0):
         raise HTTPException(status_code=400, detail="Score must be between 0 and 1")
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("""
-            SELECT DISTINCT ps.uid, ps.timestamp
-            FROM prediction_sessions ps
-            JOIN detection_objects do ON ps.uid = do.prediction_uid
-            WHERE do.score >= ?
-        """, (min_score,)).fetchall()
-
-        return [{"uid": row["uid"], "timestamp": row["timestamp"]} for row in rows]
+    try:
+        return storage.get_predictions_by_score(min_score)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/image/{type}/{filename}")
 def get_image(type: str, filename: str):
-    """
-    Get image by type and filename
-    """
     if type not in ["original", "predicted"]:
         raise HTTPException(status_code=400, detail="Invalid image type")
     path = os.path.join("uploads", type, filename)
@@ -224,15 +129,11 @@ def get_image(type: str, filename: str):
 
 @app.get("/prediction/{uid}/image")
 def get_prediction_image(uid: str, request: Request):
-    """
-    Get prediction image by uid
-    """
     accept = request.headers.get("accept", "")
-    with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute("SELECT predicted_image FROM prediction_sessions WHERE uid = ?", (uid,)).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Prediction not found")
-        image_path = row[0]
+    try:
+        image_path = storage.get_prediction_image_path(uid)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Prediction not found")
 
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404, detail="Predicted image file not found")
@@ -242,19 +143,14 @@ def get_prediction_image(uid: str, request: Request):
     elif "image/jpeg" in accept or "image/jpg" in accept:
         return FileResponse(image_path, media_type="image/jpeg")
     else:
-        # If the client doesn't accept image, respond with 406 Not Acceptable
         raise HTTPException(status_code=406, detail="Client does not accept an image format")
 
 
 @app.get("/health")
 def health():
-    """
-    Health check endpoint
-    """
     return {"status": "ok"}
 
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8081)

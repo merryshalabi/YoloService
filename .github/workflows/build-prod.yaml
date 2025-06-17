@@ -20,7 +20,7 @@ jobs:
       - name: Build and push Docker image
         run: |
           IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/yolo-prod:${{ github.run_number }}
-          echo "🔧 Built image: $IMAGE_NAME"
+          echo "Built image: $IMAGE_NAME"
           docker build -t $IMAGE_NAME .
           docker push $IMAGE_NAME
           echo "$IMAGE_NAME" > image_name.txt
@@ -30,7 +30,7 @@ jobs:
         run: |
           IMAGE_NAME=$(cat image_name.txt)
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
-          echo "✅ Saved image output: $IMAGE_NAME"
+          echo "Saved image output: $IMAGE_NAME"
 
       - name: Upload image name as artifact
         uses: actions/upload-artifact@v4
@@ -43,6 +43,8 @@ jobs:
     uses: merryshalabi/YoloService/.github/workflows/deploy-prod.yaml@main
     with:
       image: ${{ needs.build.outputs.image }}
+      STORAGE_TYPE: ${{ secrets.STORAGE_TYPE_PROD }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE_PROD }}
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       EC2_HOST: ${{ secrets.EC2_HOST }}
