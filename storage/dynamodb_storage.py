@@ -9,7 +9,7 @@ class DynamoDBStorage(BaseStorage):
     def __init__(self, table_name: str = None):
         if table_name is None:
             table_name = os.getenv("DYNAMODB_TABLE", "PredictionsDev-merry")
-        self.table = boto3.resource("dynamodb").Table(table_name)
+        self.table = boto3.resource("dynamodb",region_name="eu-west-2").Table(table_name)
 
     def save_prediction(self, uid: str, original_image: str, predicted_image: str) -> None:
         self.table.put_item(Item={
