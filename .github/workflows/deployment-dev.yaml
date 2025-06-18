@@ -17,6 +17,11 @@ on:
         required: true
       DYNAMODB_TABLE:
         required: false
+      SQS_QUEUE_URL_DEV:
+        required: true
+      POLYBOT_CALLBACK_URL_DEV:
+        required: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -59,6 +64,8 @@ jobs:
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
           echo "STORAGE_TYPE=${{ secrets.STORAGE_TYPE }}" >> .env
           echo "DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}" >> .env
+          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL_DEV }}" >> .env
+          echo "POLYBOT_CALLBACK_URL=${{ secrets.POLYBOT_CALLBACK_URL_DEV }}" >> .env
           echo "📝 Contents of .env file:"
           cat .env
 
