@@ -43,10 +43,11 @@ jobs:
     uses: merryshalabi/YoloService/.github/workflows/deploy-prod.yaml@main
     with:
       image: ${{ needs.build.outputs.image }}
-
     secrets:
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       EC2_HOST: ${{ secrets.EC2_HOST }}
       S3_BUCKET_NAME_PROD: ${{ secrets.S3_BUCKET_NAME_PROD }}
       STORAGE_TYPE: ${{ secrets.STORAGE_TYPE_PROD }}
       DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE_PROD }}
+      SQS_QUEUE_URL_PROD: ${{ secrets.SQS_QUEUE_URL_PROD }}
+      POLYBOT_CALLBACK_URL_PROD: ${{ secrets.POLYBOT_CALLBACK_URL_PROD }}

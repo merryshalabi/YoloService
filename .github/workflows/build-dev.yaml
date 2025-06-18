@@ -11,7 +11,6 @@ jobs:
     outputs:
       image: ${{ steps.save-image.outputs.image }}
 
-
     steps:
       - uses: actions/checkout@v4
 
@@ -55,6 +54,8 @@ jobs:
       S3_BUCKET_NAME_DEV: ${{ secrets.S3_BUCKET_NAME_DEV }}
       STORAGE_TYPE: ${{ secrets.STORAGE_TYPE_DEV }}
       DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE_DEV }}
+      SQS_QUEUE_URL_DEV: ${{ secrets.SQS_QUEUE_URL_DEV }}
+      POLYBOT_CALLBACK_URL_DEV: ${{ secrets.POLYBOT_CALLBACK_URL_DEV }}
 
 
 

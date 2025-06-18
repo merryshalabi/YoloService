@@ -6,18 +6,20 @@ on:
       image:
         required: true
         type: string
-      STORAGE_TYPE:
-        required: true
-        type: string
-      DYNAMODB_TABLE:
-        required: false
-        type: string
     secrets:
       SSH_PRIVATE_KEY:
         required: true
       EC2_HOST:
         required: true
       S3_BUCKET_NAME_PROD:
+        required: true
+      STORAGE_TYPE:
+        required: true
+      DYNAMODB_TABLE:
+        required: false
+      SQS_QUEUE_URL_PROD:
+        required: true
+      POLYBOT_CALLBACK_URL_PROD:
         required: true
 
 
@@ -63,6 +65,8 @@ jobs:
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_PROD }}" >> .env
           echo "STORAGE_TYPE=${{ secrets.STORAGE_TYPE }}" >> .env
           echo "DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}" >> .env
+          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL_PROD }}" >> .env
+          echo "POLYBOT_CALLBACK_URL=${{ secrets.POLYBOT_CALLBACK_URL_PROD }}" >> .env
           echo "Contents of .env file:"
           cat .env
 
