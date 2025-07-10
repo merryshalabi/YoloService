@@ -31,4 +31,4 @@ ENV YOLO_CONFIG_DIR=/tmp/ultralytics
 RUN mkdir -p /tmp/ultralytics
 
 # Default command
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8081", "--workers", "4"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8081", "--workers", "1"]
