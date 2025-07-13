@@ -43,6 +43,25 @@ jobs:
           name: yolo-image-name
           path: image_name.txt
 
+      - name: Update image in polybot-infra repo
+        run: |
+          IMAGE_TAG=${{ github.run_number }}
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:$IMAGE_TAG
+
+          git config --global user.email "bot@github.com"
+          git config --global user.name "GitHub Actions Bot"
+
+          git clone https://x-access-token:${{ secrets.POLYBOT_INFRA_PAT }}@github.com/merryshalabi/polybot-infra.git
+          cd polybot-infra/polybot-k8s/dev/Yolo
+
+          # Update image line in deployment.yaml
+          sed -i "s|image: .*yolo-dev:.*|image: $IMAGE_NAME|" deployment.yaml
+
+          git add deployment.yaml
+          git commit -m "chore: update YOLO dev image to $IMAGE_TAG"
+          git push origin main
+
+
   deploy:
     needs: build
     uses: merryshalabi/YoloService/.github/workflows/deployment-dev.yaml@dev
