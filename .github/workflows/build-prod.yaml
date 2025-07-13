@@ -46,8 +46,8 @@ jobs:
           git config --global user.email "bot@github.com"
           git config --global user.name "GitHub Actions Bot"
 
-          git clone https://x-access-token:${{ secrets.POLYBOT_INFRA_PAT }}@github.com/merryshalabi/polybot-infra.git
-          cd polybot-infra/polybot-k8s/prod/Yolo
+          git clone https://x-access-token:${{ secrets.POLYBOT_INFRA_PAT }}@github.com/merryshalabi/PolybotInfra.git
+          cd PolybotInfra/polybot-k8s/prod/Yolo
 
           sed -i "s|image: .*yolo-prod:.*|image: $IMAGE_NAME|" deployment.yaml
 
